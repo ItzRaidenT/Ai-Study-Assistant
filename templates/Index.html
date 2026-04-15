@@ -5,6 +5,60 @@
 {% endblock %}
 
 {% block content %}
-    <h1>Welcome to the AI Study Assistant!</h1>
-    <p>This is the home page.</p>
+<div class="header">
+    <div class="menu">☰</div>
+    <div class="title">AI Study Assistant</div>
+</div>
+
+<div class="search">
+    <input type="text" placeholder="Search...">
+</div>
+
+<div class="grid">
+
+    <div class="card">
+        <div class="icon">
+            <img src="icons/upload.svg">
+        </div>
+        <div class="card-title">Upload Document</div>
+        <div class="card-desc">Upload notes or PDF for AI processing</div>
+    </div>
+
+    <div class="card">
+        <div class="icon">
+            <img src="icons/chat.svg">
+        </div>
+        <div class="card-title">Chat Assistant</div>
+        <div class="card-desc">Ask questions instantly</div>
+    </div>
+
+    <div class="card">
+        <div class="icon">
+            <img src="icons/summary.svg">
+        </div>
+        <div class="card-title">Image Generator</div>
+        <div class="card-desc">Generate images from text descriptions</div>
+    </div>
+
+    <div class="card">
+        <div class="icon">
+            <img src="icons/flashcard.svg">
+        </div>
+        <div class="card-title">Flashcards</div>
+        <div class="card-desc">Study efficiently and test your knowledge</div>
+    </div>
+
+</div>
+
+<div class="history">
+    <div class="history-title">
+        <div>History</div>
+        <div class="see-all">See all</div>
+    </div>
+
+    <div class="history-item">Biology Notes</div>
+    <div class="history-item">What is the fastest land animal in the world?</div>
+    <div class="history-item">Chemistry Flashcards</div>
+</div>
+
 {% endblock %}
