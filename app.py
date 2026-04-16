@@ -80,13 +80,16 @@ def upload_file():
         'full_text': extracted_text
     })
     
-    
 
     
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/uploaddocument')
+def upload_document():
+    return render_template('uploaddocument.html')  
 
 #--------------------------------------------------------------------------------------------
 

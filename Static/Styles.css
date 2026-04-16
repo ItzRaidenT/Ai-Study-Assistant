@@ -97,3 +97,27 @@ body {
     border-radius: 10px;
     margin-top: 8px;
 }
+
+.upload-section {
+    padding: 20px;
+    background-color: antiquewhite;
+}
+
+.back-link {
+    display: inline-block;
+    margin-top: 20px;
+    color: #aaa;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+.header2 {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    background-color: #1c1c1c;
+    color: white;
+}
