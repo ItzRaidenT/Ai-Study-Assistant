@@ -7,9 +7,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-class StudyTask(db.Model):
+class filedatabse(db.Model):
     id = db.Column(db.Integer, primary_key = True)
-    content = db.Column(db.Text, nullable = False)
+    content = db.Column(db.String(100), nullable = False)
     completed = db.Column(db.Integer, default = 0)
     created = db.Column(db.DateTime, default = datetime.utcnow)
 
