@@ -18,7 +18,7 @@ class userdata(db.Model):
     email = db.Column(db.String(80), nullable = False)
     password = db.Column(db.String(80), nullable = False)
 
-    def repr(self) -> str:
+    def __repr__(self) -> str:
         return f" File {self.id} "
     
 with app.app_context():
@@ -81,6 +81,6 @@ def login_user():
 
 #--------------------------------------------------------------------------------------------
 
-if __name__ == '_main_':
+if __name__ == '__main__':
     app.run(debug=True)
     
