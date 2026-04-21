@@ -140,7 +140,7 @@ def upload_file():
         'full_text': extracted_text
     })
 
-@app.route('/upload', method = ["DELETE"])
+@app.route('/upload', methods = ["DELETE"])
 def delete_file():
     return "wait"
     
