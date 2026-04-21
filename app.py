@@ -1,7 +1,6 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
 import pdfplumber
 import os
 
@@ -14,17 +13,18 @@ db = SQLAlchemy(app)
 
 Allowed_extensions = {'txt', 'pdf'}
 
-class filedatabase(db.Model):
+#--------------------------Database model-------------------------------------------------------
+class userdata(db.Model):
     id = db.Column(db.Integer, primary_key = True)
-    content = db.Column(db.String(100), nullable = False)
-    completed = db.Column(db.Integer, default = 0)
-    created = db.Column(db.DateTime, default = datetime.utcnow)
+    email = db.Column(db.String(80), nullable = False)
+    password = db.Column(db.String(80), nullable = False)
 
     def _repr_(self) -> str:
         return f" File {self.id} "
     
 with app.app_context():
     db.create_all()
+
 
 # --------------------------Upload file system -----------------------------------------------
 
@@ -51,6 +51,8 @@ def get_word_count(text):
 def get_preview(text, chars=300):
     return text[:chars] + '...' if len(text) > chars else text
 
+
+#--------------------------File upload API------------------------------------------------
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -79,14 +81,39 @@ def upload_file():
         'preview': get_preview(extracted_text),
         'full_text': extracted_text
     })
-    
+
+@app.route('/upload', method = ["DELETE"])
+def delete_file():
+    return "wait"
     
 
-    
+
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
 def index():
+    if 'user_id' not in session:
+        return render_template('login.html')
     return render_template('index.html')
+
+@app.route('/login')
+def login():
+    if 'user_id' in session:
+        return render_template('index.html')
+    return render_template('login.html')
+
+@app.route('/register')
+def register_page():
+    if 'user_id' in session:
+        return render_template('index.html')
+    return render_template('register.html') 
+
+@app.route('/uploaddocument')
+def upload_document():
+    if 'user_id' in session:
+        return render_template('uploaddocument.html')
+    return render_template('login.html')  
+
+
 
 #--------------------------------------------------------------------------------------------
 
