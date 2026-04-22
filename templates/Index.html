@@ -54,4 +54,26 @@
         <div class="history-item">Chemistry Flashcards</div>
     </div>
 </div>
+
+<div class="history">
+    <div class="history-title">
+        <div>History</div>
+        <div class="see-all">See all</div>
+    </div>
+
+    <div class="history-item">Biology Notes</div>
+    <div class="history-item">What is the fastest land animal in the world?</div>
+    <div class="history-item">Chemistry Flashcards</div>
+</div>
+<script>
+    async function logout() {
+    await fetch('/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+
 {% endblock %}
