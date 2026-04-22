@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <title>Register - AI Study Assistant</title>
+{% endblock %}
+
+{% block content %}
+<div class="layout">
+    <div class="header2">
+        <div class="menu">☰</div>
+        <div class="title">Register</div>
+    </div>
+
+    <div class="downer">
+        <div class="login_container">
+            <div class="alert" id="alertBox" style="display:none;"></div>
+
+            <form  method="POST" action="/api/register">
+                <h1>Create an Account</h1>
+                <p>Please fill in the details below to create your account.</p>
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email   :</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password:</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required>
+                </div>
+                
+                <button class="btn btn-primary btn-full" id="registerBtn" onclick="handleRegister()">
+                    Create Account
+                </button>
+
+                <p class="auth-switch">
+                    Have an account? <a href="/login" class="link">Log in</a>
+                </p>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+   async function handleRegister() {
+      const username = document.getElementById('username').value.trim();
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirm  = document.getElementById('confirm_password').value; 
+      const btn      = document.getElementById('registerBtn');
+
+      function showAlert(msg, type) {
+        const box = document.getElementById('alertBox');
+        box.textContent = msg;
+        box.className = 'alert alert-' + type;
+        box.style.display = 'block';
+      }
+
+      if (!username || !email || !password || !confirm) {
+        showAlert('Please fill in all fields.', 'error'); 
+        return;
+      }
+      if (password !== confirm) {
+        showAlert('Passwords do not match.', 'error'); 
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+
+      try {
+        const res  = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password, confirm_password: confirm })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showAlert('Account created! Redirecting...', 'success');
+          setTimeout(() => window.location.href = '/', 800);
+        } else {
+          showAlert(data.error, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Create Account';
+        }
+      } catch {
+        showAlert('Connection error. Please try again.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    }
+</script>
+{% endblock %}
