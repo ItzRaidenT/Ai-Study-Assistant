@@ -11,14 +11,7 @@ app.config["UPLOAD_FOLDER"] = "uploads/"
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 #16MB
 db = SQLAlchemy(app)
 
-<<<<<<< HEAD
 class filedatabse(db.Model):
-=======
-Allowed_extensions = {'txt', 'pdf'}
-
-#--------------------------Database model-------------------------------------------------------
-class userdata(db.Model):
->>>>>>> aacf784aac32f74ba8ad052357498d6ec008f5e5
     id = db.Column(db.Integer, primary_key = True)
     email = db.Column(db.String(80), nullable = False)
     password = db.Column(db.String(80), nullable = False)
