@@ -2,17 +2,19 @@ from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, url_for
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 import pdfplumber
 import os
 import re
 from werkzeug.security import generate_password_hash, check_password_hash
+import uuid
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["UPLOAD_FOLDER"] = "uploads/"
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 #16MB
-app.secret_key = 'Itz1001'  # Add secret key for sessions
+app.config['SECRET_KEY'] = 'your-super-secret-key-change-this'  # Add secret key for sessions
 db = SQLAlchemy(app)
 
 ALLOWED_EXTENSIONS = {'pdf', 'txt'}
@@ -22,13 +24,27 @@ class user(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     username = db.Column(db.String(80), nullable = False, unique = True)
     email = db.Column(db.String(80), nullable = False, unique = True)
-    password = db.Column(db.String(80), nullable = False)
+    password = db.Column(db.String(225), nullable = False)
 
     def __repr__(self) -> str:
         return f"User {self.id} {self.username}"
     
 with app.app_context():
     db.create_all()
+
+#-------------------------File model------------------------------------------------
+class File(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+
+    original_filename = db.Column(db.String(255))
+
+    filetype = db.Column(db.String(50))
+    word_count = db.Column(db.Integer)
+
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 #-------------------------User authentication system------------------------------------------------
 def login_required(f):
@@ -79,7 +95,6 @@ def validate_password(password):
         return False, 'Password must contain at least one number'
     return True, None
 
-
 # --------------------------Upload file system -----------------------------------------------
 
 def allow_file(filename):
@@ -119,27 +134,58 @@ def upload_file():
     if not allow_file(file.filename):
         return jsonify({'Error': 'File type not allowed'})
     
-    filename = secure_filename(file.filename)
+    filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename )
     file.save(filepath)
 
     extracted_text = extract_text(filepath)
-    os.remove(filepath)
 
     if not extracted_text:
-        return jsonify({'Success': False, 'error': 'Could not extract text from file'}), 400
+        os.remove(filepath)
+        return jsonify({
+        'success': False,
+        'error': 'Could not extract text from file'
+    }), 400
+
+    word_count = get_word_count(extracted_text)
+
+    new_file = File(
+        filename=filename,
+        original_filename=file.filename,
+        word_count=word_count,
+        user_id=session['user_id']
+    )
+
+    db.session.add(new_file)
+    db.session.commit()
 
     return jsonify({
-        'success': True,
-        'filename': filename,
-        'word_count': get_word_count(extracted_text),
-        'preview': get_preview(extracted_text),
-        'full_text': extracted_text
-    })
+    'success': True,
+    'file_id': new_file.id,
+    'filename': file.filename,          
+    'stored_filename': filename,        
+    'word_count': word_count,
+    'preview': get_preview(extracted_text)
+})
 
-@app.route('/upload', methods = ["DELETE"])
-def delete_file():
-    return "wait"
+#--------------------------File Delete API------------------------------------------------
+@app.route('/files/<int:file_id>', methods=['DELETE'])
+@login_required
+def delete_file(file_id):
+    user_file = db.session.get(File, file_id)
+
+    if not user_file or user_file.user_id != session['user_id']:
+        return jsonify({'error': 'File not found'}), 404
+
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], user_file.filename)
+
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
+    db.session.delete(user_file)
+    db.session.commit()
+
+    return jsonify({'success': True})
     
 #--------------------------User authentication system API------------------------------------------------
 @app.route('/api/register', methods = ['POST'])
@@ -176,22 +222,24 @@ def register():
     session['username'] = username
     return jsonify({'success': True, 'username': username}), 201
 
-@app.route('/api/login', methods = ['POST'])
+@app.route('/api/login', methods=['POST'])
 def login_user():
-    username = request.form.get('username').strip()
-    email = request.form.get('email').strip().lower()
+    identifier = request.form.get('identifier').strip()
     password = request.form.get('password').strip()
 
-    if not email or not username or not password:
-        return jsonify({'error': 'All fields are required'}), 400
+    User = user  
+    user_obj = user.query.filter(
+        (user.username == identifier) | (user.email == identifier)
+    ).first()
 
-    user = get_user_by_username(username)
-    if not user or user.email.lower() != email or not check_password_hash(user.password, password):
-        return jsonify({'success': False, 'error': 'Invalid username, email or password'}), 401
+    if not user or not check_password_hash(user.password, password):
+        return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
 
+    session.clear()  #avoid session fixation
     session['user_id'] = user.id
     session['username'] = user.username
-    return jsonify({'success': True, 'username': user.username})
+
+    return jsonify({'success': True})
 
 @app.route('/logout', methods = ['POST'])
 def logout():
