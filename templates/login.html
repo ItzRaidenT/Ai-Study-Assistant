@@ -13,23 +13,21 @@
 
     <div class="downer">
         <div class="login_container">
-            <form method="POST" action="/login">
+            <div class="alert" id="alertBox" style="display:none;"></div>
+            
+            <form method="POST" action="/api/login" >
                 <h1>Welcome Back</h1>
                 <p>Please sign in to your account.</p>
                 <div class="form-group">
-                    <label for="username">Username:</label>
+                    <label for="username">Username or Email:</label>
                     <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email   :</label>
-                    <input type="email" id="email" name="email" required>
                 </div>
                 <div class="form-group">
                     <label for="password">Password:</label>
                     <input type="password" id="password" name="password" required>
                 </div>
                 <button class="btn btn-primary btn-full" id="loginBtn" onclick="handleLogin()">
-                     Log In
+                    Log In
                 </button>
                 <p class="auth-switch">
                     Don't have an account? <a href="/register" class="link">Create one</a>
@@ -40,27 +38,49 @@
 </div>
 <script>
     async function handleLogin() {
-        const username = document.getElementById('username').value.trim();
-        const email = document.getElementById('email').value.trim().toLowerCase();
-        const password = document.getElementById('password').value.trim();
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const btn      = document.getElementById('loginBtn');
 
-        if (!username || !email || !password) {
-            alert('Please fill in all fields');
-            return;
-        }
-
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ username, email, password })
-        });
-
-        if (response.ok) {
-            window.location.href = '/login';
-        } else {
-            const data = await response.json();
-            alert(data.error || 'Login failed');
-        }
+      function showAlert(msg, type) {
+      const box = document.getElementById('alertBox');
+      box.textContent = msg;
+      box.className = 'alert alert-' + type;
+      box.style.display = 'block';
     }
+
+      if (!email || !password) {
+        showAlert('Please fill in all fields.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+
+      try {
+        const res  = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: email, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showAlert('Login successful! Redirecting...', 'success');
+          setTimeout(() => window.location.href = '/', 800);
+        } else {
+          showAlert(data.error, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Log In';
+        }
+      } catch {
+        showAlert('Connection error. Please try again.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Log In';
+      }
+    }
+
+    
+
 </script>
 {% endblock %}
