@@ -148,3 +148,17 @@ body {
 .form-group {
     margin-bottom: 15px;
 }
+
+.nav-logout {
+  background: rgba(226,75,74,0.2);
+  border: 1px solid rgba(226,75,74,0.4);
+  color: #fff;
+  font-size: 13px;
+  padding: 5px 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-left: 1000px;
+}
+
+.nav-logout:hover { background: rgba(226,75,74,0.4); }
