@@ -12,7 +12,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["UPLOAD_FOLDER"] = "uploads/"
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 #16MB
-app.secret_key = 'Itz1001'  # Add secret key for sessions
+app.secret_key = 'Itz_1001_Mid'  # Add secret key for sessions
 db = SQLAlchemy(app)
 
 # Ensure upload folder exists
@@ -147,10 +147,17 @@ def delete_file():
 #--------------------------User authentication system API------------------------------------------------
 @app.route('/api/register', methods = ['POST'])
 def register():
-    username = request.form.get('username').strip()
-    email = request.form.get('email').strip().lower()
-    password = request.form.get('password').strip()
-    confirm_password = request.form.get('confirm_password').strip()
+    if request.is_json:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '').strip()
+        confirm_password = data.get('confirm_password', '').strip()
+    else:
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
 
     if not email or not username or not password or not confirm_password:
         return jsonify({'error': 'All fields are required'}), 400
@@ -181,20 +188,27 @@ def register():
 
 @app.route('/api/login', methods = ['POST'])
 def login_user():
-    username = request.form.get('username').strip()
-    email = request.form.get('email').strip().lower()
-    password = request.form.get('password').strip()
+    if request.is_json:
+        data = request.get_json()
+        login_input = data.get('username', '').strip()  # 可以是 username 或 email
+        password = data.get('password', '').strip()
+    else:
+        login_input = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
 
-    if not email or not username or not password:
+    if not login_input or not password:
         return jsonify({'error': 'All fields are required'}), 400
 
-    user = get_user_by_username(username)
-    if not user or user.email.lower() != email or not check_password_hash(user.password, password):
-        return jsonify({'success': False, 'error': 'Invalid username, email or password'}), 401
+    user_obj = get_user_by_username(login_input)
+    if not user_obj:
+        user_obj = get_user_by_email(login_input.lower())
 
-    session['user_id'] = user.id
-    session['username'] = user.username
-    return jsonify({'success': True, 'username': user.username})
+    if not user_obj or not check_password_hash(user_obj.password, password):
+        return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+
+    session['user_id'] = user_obj.id
+    session['username'] = user_obj.username
+    return jsonify({'success': True, 'username': user_obj.username})
 
 @app.route('/logout', methods = ['POST'])
 def logout():
@@ -219,15 +233,15 @@ def index():
 
 @app.route('/login')
 def login():
-    if 'user_id' in session:
-        return render_template('index.html')
-    return render_template('login.html')
+    if 'user_id' not in session:
+        return render_template('login.html')
+    return render_template('index.html')
 
 @app.route('/register')
 def register_page():
-    if 'user_id' in session:
-        return render_template('index.html')
-    return render_template('register.html') 
+    if 'user_id' not in session:
+        return render_template('register.html')
+    return render_template('login.html') 
 
 @app.route('/uploaddocument')
 def upload_document():
