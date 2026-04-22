@@ -18,17 +18,17 @@ db = SQLAlchemy(app)
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-Allowed_extensions = {'txt', 'pdf'}
+ALLOWED_EXTENSIONS = {'txt', 'pdf'}
 
 #--------------------------Database model-------------------------------------------------------
-class userdata(db.Model):
+class user(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     username = db.Column(db.String(80), nullable = False, unique = True)
     email = db.Column(db.String(80), nullable = False, unique = True)
     password = db.Column(db.String(80), nullable = False)
 
     def __repr__(self) -> str:
-        return f"User {self.id}"
+        return f"User {self.id} {self.username}"
     
 with app.app_context():
     db.create_all()
@@ -40,39 +40,38 @@ def login_required(f):
         if 'user_id' not in session:
             if request.is_json or request.path.startswith('/api/'):
                 return jsonify({'success': False, 'error': 'Login required'}), 401
-            return redirect(url_for('login_page'))
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
 
 def create_user(username, email, password):
     try:
         hashed_password = generate_password_hash(password)
-        new_user = userdata(username=username, email=email, password=hashed_password)
+        new_user = user(username=username, email=email, password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
         return new_user.id, None
     
     except Exception as e:
         db.session.rollback()
-        if 'username' in str(e):
+        err = str(e).lower()
+        if 'username' in err:
             return None, 'Username already taken'
-        if 'email' in str(e):
+        if 'email' in err:
             return None, 'Email already registered'
         return None, 'Registration failed'
     
 def get_user_by_email(email):
-    return userdata.query.filter_by(email=email).first()
+    return user.query.filter_by(email=email).first()
 
 def get_user_by_username(username):
-    return userdata.query.filter_by(username=username).first()
+    return user.query.filter_by(username=username).first()
 
 def get_user_by_id(user_id):
-    return userdata.query.get(user_id)
+    return db.session.get(user, user_id)
 
 def validate_email(email):
-    if '@' in email and '.' in email.split('@')[-1]:
-        return True
-    return False
+    return '@' in email and '.' in email.split('@')[-1]
 
 def validate_password(password):
     if len(password) < 8:
@@ -87,7 +86,7 @@ def validate_password(password):
 # --------------------------Upload file system -----------------------------------------------
 
 def allow_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in Allowed_extensions
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def extract_text(filepath):
     if filepath.endswith('.pdf'):
@@ -111,16 +110,17 @@ def get_preview(text, chars=300):
 
 
 #--------------------------File upload API------------------------------------------------
-@app.route('/upload', methods=['POST'])
+@app.route('/upload', methods = ['POST'])
+@login_required
 def upload_file():
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part'})
+        return jsonify({'Error': 'No file part'})
     
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'No selected file'})
+        return jsonify({'Error': 'No selected file'})
     if not allow_file(file.filename):
-        return jsonify({'error': 'File type not allowed'})
+        return jsonify({'Error': 'File type not allowed'})
     
     filename = secure_filename(file.filename)
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename )
@@ -130,7 +130,7 @@ def upload_file():
     os.remove(filepath)
 
     if not extracted_text:
-        return jsonify({'success': False, 'error': 'Could not extract text from file'}), 400
+        return jsonify({'Success': False, 'error': 'Could not extract text from file'}), 400
 
     return jsonify({
         'success': True,
@@ -145,7 +145,7 @@ def delete_file():
     return "wait"
     
 #--------------------------User authentication system API------------------------------------------------
-@app.route('/register', methods=['POST'])
+@app.route('/api/register', methods = ['POST'])
 def register():
     username = request.form.get('username').strip()
     email = request.form.get('email').strip().lower()
@@ -153,23 +153,23 @@ def register():
     confirm_password = request.form.get('confirm_password').strip()
 
     if not email or not username or not password or not confirm_password:
-        return jsonify({'Error': 'All fields are required'}), 400
+        return jsonify({'error': 'All fields are required'}), 400
     
     if len(username) < 3 or len(username) > 10:
-        return jsonify({'Error': 'Username must be between 3 and 10 characters'}), 400
+        return jsonify({'error': 'Username must be between 3 and 10 characters'}), 400
     
     valid, msg = validate_password(password)
     if not valid:
-        return jsonify({'Error': msg}), 400
+        return jsonify({'error': msg}), 400
     
     if not validate_email(email):
-        return jsonify({'Error': 'Invalid email format'}), 400
+        return jsonify({'error': 'Invalid email format'}), 400
 
     if password != confirm_password:
-        return jsonify({'Error': 'Passwords do not match'}), 400
+        return jsonify({'error': 'Passwords do not match'}), 400
 
-    if userdata.query.filter_by(email=email).first():
-        return jsonify({'Error': 'Email already registered'}), 400
+    if user.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already registered'}), 400
 
     user_id, error = create_user(username, email, password)
     if error:
@@ -179,14 +179,14 @@ def register():
     session['username'] = username
     return jsonify({'success': True, 'username': username}), 201
 
-@app.route('/login', methods=['POST'])
+@app.route('/api/login', methods = ['POST'])
 def login_user():
     username = request.form.get('username').strip()
     email = request.form.get('email').strip().lower()
     password = request.form.get('password').strip()
 
     if not email or not username or not password:
-        return jsonify({'Error': 'All fields are required'}), 400
+        return jsonify({'error': 'All fields are required'}), 400
 
     user = get_user_by_username(username)
     if not user or user.email.lower() != email or not check_password_hash(user.password, password):
@@ -196,12 +196,12 @@ def login_user():
     session['username'] = user.username
     return jsonify({'success': True, 'username': user.username})
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout', methods = ['POST'])
 def logout():
     session.clear()
     return jsonify({'success': True})
 
-@app.route('/me', methods=['GET'])
+@app.route('/me', methods = ['GET'])
 @login_required
 def me():
     user = get_user_by_id(session['user_id'])
