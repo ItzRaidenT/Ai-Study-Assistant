@@ -8,6 +8,7 @@
 <div class="header">
     <div class="menu">☰</div>
     <div class="title">AI Study Assistant</div>
+    <button class="nav-logout" id="logoutBtn" onclick="logout()">Log Out</button>
 </div>
 
 <div class="search">
@@ -60,5 +61,15 @@
     <div class="history-item">What is the fastest land animal in the world?</div>
     <div class="history-item">Chemistry Flashcards</div>
 </div>
+<script>
+    async function logout() {
+    await fetch('/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
 
 {% endblock %}
