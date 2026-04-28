@@ -5,15 +5,21 @@
 {% endblock %}
 
 {% block content %}
-<div class="header3">
-    <div class="menu">☰</div>
-    <div class="title">Upload Document</div>
-</div>
+<div class="layout">
+    <div class="header3">
+        <div class="menu">☰</div>
+        <div class="title">Upload Document</div>
+    </div>
 
-<div class="upload-section">
-    <div class="upload-instructions">
-        <p>Upload your notes or PDF documents for AI processing.</p>
-        <p>Supported formats: .txt, .pdf</p>
+    <div class="upload-section">
+        <div class="upload-instructions">
+            <p>Upload your notes or PDF documents for AI processing.</p>
+            <p>Supported formats: .txt, .pdf</p>
+        </div>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="document" accept=".txt,.pdf" required>
+            <button type="submit">Upload</button>
+        </form>
     </div>
     <div class="alert" id="alertBox" style="display:none;"></div>
     <form id="uploadForm" enctype="multipart/form-data" onsubmit="return handleUpload(event)">
@@ -22,8 +28,9 @@
     </form>
 </div>
 
-<div>
- <a href="/" class="back-link">← Back to Home</a>
+    <div>
+    <a href="/" class="back-link">← Back to Home</a>
+    </div>
 </div>
 
 <script>

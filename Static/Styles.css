@@ -1,4 +1,4 @@
-body {
+.layout {
     margin: 0;
     font-family: 'Poppins', sans-serif;
     background: rgb(218, 177, 177)
@@ -6,33 +6,26 @@ body {
 }   
 
 
-/* header */
+    background:
+        url("pattern.png"),
+        linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
+
+    background-size: cover;
+    color: white;
+}
+
 .header {
     display: flex;
     align-items: center;
     padding: 20px;
-}
-
-.header2{
-    display: flex;
-    align-items: center;
-    padding: 20px;
-    background-color: #1c1c1c;
-    color: white;
-}
-
-.header3 {
-    display: flex;
-    align-items: center;
-    padding: 20px;
-    background-color: #1c1c1c;
-    color: white;
+    color: #1c1c1c;
 }
 
 .menu {
     font-size: 24px;
     margin-right: 15px;
     cursor: pointer;
+    transform: translateY(-5px);
 }
 
 .title {
@@ -40,7 +33,6 @@ body {
     font-weight: bold;
 }
 
-/* search */
 .search {
     padding: 0 20px;
 }
@@ -50,22 +42,23 @@ body {
     padding: 12px;
     border-radius: 20px;
     border: none;
-    background: #1f1f1f;
-    color: white;
+    background: #ffffc5;
+    color: #333;
 }
 
-/* grid */
 .grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 15px;
     padding: 20px;
+    line-height: 1.5;
+    color: #1c1c1c;
 }
 
 
 /* card */
 .card {
-    background: #1c1c1c;
+    background: #ffffc5;
     border-radius: 20px;
     padding: 20px;
     transition: 0.3s;
@@ -75,24 +68,20 @@ body {
     transform: translateY(-5px);
 }
 
-/* icon */
-.icon img {
-    width: 30px;
+.card-emoji {
+    font-size: 28px;
     margin-bottom: 10px;
 }
 
-/* title */
 .card-title {
     font-weight: bold;
 }
 
-/* description */
 .card-desc {
     font-size: 12px;
-    color: #aaa;
+    color: #555;
 }
 
-/* history */
 .history {
     padding: 20px;
 }
@@ -101,15 +90,16 @@ body {
     display: flex;
     justify-content: space-between;
     margin-bottom: 10px;
+    color: black;
 }
 
 .see-all {
     font-size: 12px;
-    color: #aaa;
+    color: black;
 }
 
 .history-item {
-    background: #1c1c1c;
+    background: #ffffc5;
     padding: 10px;
     border-radius: 10px;
     margin-top: 8px;

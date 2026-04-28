@@ -104,7 +104,7 @@
         });
         const data = await res.json();
 
-        if (data.success) {
+if (data.success) {
           showAlert('Account created! Redirecting...', 'success');
           setTimeout(() => window.location.href = '/', 800);
         } else {
