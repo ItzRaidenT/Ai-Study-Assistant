@@ -2,11 +2,11 @@ from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, url_for
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import pdfplumber
 import os
 import re
-from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 
 app = Flask(__name__)
@@ -125,14 +125,14 @@ def get_preview(text, chars=300):
 @app.route('/upload', methods = ['POST'])
 @login_required
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'Error': 'No file part'})
+    if 'file' not in request.files and 'document' not in request.files:
+        return jsonify({'success': False, 'error': 'No file part'}), 400
     
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'Error': 'No selected file'})
+    file = request.files.get('file') or request.files.get('document')
+    if not file or file.filename == '':
+        return jsonify({'success': False, 'error': 'No selected file'}), 400
     if not allow_file(file.filename):
-        return jsonify({'Error': 'File type not allowed'})
+        return jsonify({'success': False, 'error': 'File type not allowed'}), 400
     
     filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename )
@@ -190,36 +190,23 @@ def delete_file(file_id):
 #--------------------------User authentication system API------------------------------------------------
 @app.route('/api/register', methods = ['POST'])
 def register():
-    if request.is_json:
-        data = request.get_json()
-        username = data.get('username', '').strip()
-        email = data.get('email', '').strip().lower()
-        password = data.get('password', '').strip()
-        confirm_password = data.get('confirm_password', '').strip()
-    else:
-        username = request.form.get('username', '').strip()
-        email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '').strip()
-        confirm_password = request.form.get('confirm_password', '').strip()
+    data     = request.get_json()
+    username = (data.get('username') or '').strip()
+    email    = (data.get('email') or '').strip().lower()
+    password = (data.get('password') or '').strip()
+    confirm  = (data.get('confirm') or '').strip()
 
-    if not email or not username or not password or not confirm_password:
-        return jsonify({'error': 'All fields are required'}), 400
-    
-    if len(username) < 3 or len(username) > 10:
-        return jsonify({'error': 'Username must be between 3 and 10 characters'}), 400
-    
+    if not username or not email or not password:
+        return jsonify({'success': False, 'error': 'All fields are required'}), 400
+    if len(username) < 3:
+        return jsonify({'success': False, 'error': 'Username must be at least 3 characters'}), 400
+    if not validate_email(email):
+        return jsonify({'success': False, 'error': 'Invalid email address'}), 400
     valid, msg = validate_password(password)
     if not valid:
-        return jsonify({'error': msg}), 400
-    
-    if not validate_email(email):
-        return jsonify({'error': 'Invalid email format'}), 400
-
-    if password != confirm_password:
-        return jsonify({'error': 'Passwords do not match'}), 400
-
-    if user.query.filter_by(email=email).first():
-        return jsonify({'error': 'Email already registered'}), 400
+        return jsonify({'success': False, 'error': msg}), 400
+    if password != confirm:
+        return jsonify({'success': False, 'error': 'Passwords do not match'}), 400
 
     user_id, error = create_user(username, email, password)
     if error:
@@ -231,33 +218,46 @@ def register():
 
 @app.route('/api/login', methods = ['POST'])
 def login_user():
-    if request.is_json:
-        data = request.get_json()
-        login_input = data.get('username', '').strip()  # 可以是 username 或 email
-        password = data.get('password', '').strip()
-    else:
-        login_input = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
+    data      = request.get_json() or {}
+    userobj   = (data.get('userobj') or '').strip()
+    password  = (data.get('password') or '').strip()
+    user_obj  = get_user_by_username(userobj) or get_user_by_email(userobj.lower())
 
-    if not login_input or not password:
-        return jsonify({'error': 'All fields are required'}), 400
+    if not user_obj or not password:
+        return jsonify({'success': False, 'error': 'Email/Username and password are required'}), 400
 
-    user_obj = get_user_by_username(login_input)
-    if not user_obj:
-        user_obj = get_user_by_email(login_input.lower())
+    if not check_password_hash(user_obj.password, password):
+        return jsonify({'success': False, 'error': 'Invalid email/username or password'}), 401
 
-    if not user_obj or not check_password_hash(user_obj.password, password):
-        return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
-
-    session['user_id'] = user_obj.id
+    session['user_id']  = user_obj.id
     session['username'] = user_obj.username
     return jsonify({'success': True, 'username': user_obj.username})
+
+@app.route('/api/forgot_password', methods = ['POST'])
+def forgot_password_api():
+    data = request.get_json() or {}
+    user_input = (data.get('userobj') or data.get('email') or '').strip()
+    if not user_input:
+        return jsonify({'success': False, 'error': 'Email or username is required'}), 400
+
+    if '@' in user_input:
+        user_obj = get_user_by_email(user_input.lower())
+    else:
+        user_obj = get_user_by_username(user_input)
+
+    if not user_obj:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    # In a real application, you would send an email with a reset link here
+    return jsonify({'success': True, 'message': 'Password reset instructions sent to your email (not really, this is a demo)'})
+
 
 
 @app.route('/logout', methods = ['POST'])
 def logout():
-    session.clear()
-    return jsonify({'success': True})
+    session.pop('user_id', None)
+    session.pop('username', None)
+    return redirect(url_for('login'))
 
 @app.route('/me', methods = ['GET'])
 @login_required
