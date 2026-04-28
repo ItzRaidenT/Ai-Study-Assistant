@@ -5,51 +5,76 @@
 {% endblock %}
 
 {% block content %}
-<div class="layout">
-    <div class="header2">
-        <div class="menu">☰</div>
-        <div class="title">Login</div>
+<div class="auth-layout">
+
+    <!-- Left panel -->
+    <div class="auth-panel">
+      <div class="brand">
+        <span class="brand-icon">📚</span>
+        <span class="brand-name">AI Study Assistant</span>
+      </div>
+      <div class="panel-body">
+        <h1 class="auth-title">Welcome back</h1>
+        <p class="auth-sub">Log in to access your study materials and history.</p>
+
+        <div class="alert" id="alertBox" style="display:none;"></div>
+
+        <div class="form-group">
+          <label class="form-label">Email address or Username</label>
+          <input class="form-input" type="text" id="userobj" placeholder="you@example.com or your username" autocomplete="email"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-wrap">
+            <input class="form-input" type="password" id="password" placeholder="Enter your password" autocomplete="current-password"/>
+            <button class="toggle-pw" type="button" onclick="togglePw('password', this)">👁</button>
+          </div>
+          <p class="auth-forgot">
+            <a href="/forgot-password" class="link">Forgot Password?</a>
+          </p>
+        </div>
+
+        <button class="btn btn-primary btn-full" id="loginBtn" onclick="handleLogin()">
+          Log In
+        </button>
+
+        <p class="auth-switch">
+          Don't have an account? <a href="/register" class="link">Create one</a>
+        </p>
+        
+      </div>
     </div>
 
-    <div class="downer">
-        <div class="login_container">
-            <div class="alert" id="alertBox" style="display:none;"></div>
-            
-            <form method="POST" action="/api/login" >
-                <h1>Welcome Back</h1>
-                <p>Please sign in to your account.</p>
-                <div class="form-group">
-                    <label for="username">Username or Email:</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                <button class="btn btn-primary btn-full" id="loginBtn" onclick="handleLogin()">
-                    Log In
-                </button>
-                <p class="auth-switch">
-                    Don't have an account? <a href="/register" class="link">Create one</a>
-                </p>
-            </form>
+    <!-- Right decorative panel -->
+    <div class="deco-panel">
+      <div class="deco-content">
+        <div class="deco-icon">🎓</div>
+        <h2>Study smarter,<br>not harder.</h2>
+        <p>Upload your notes and let AI do the heavy lifting — instant summaries and flashcards, ready in seconds.</p>
+        <div class="feature-pills">
+          <span class="pill">📄 PDF Upload</span>
+          <span class="pill">✨ AI Summary</span>
+          <span class="pill">🃏 Flashcards</span>
+          <span class="pill">📂 History</span>
         </div>
+      </div>
     </div>
-</div>
-<script>
+
+  </div>
+
+  <script>
+    // Allow Enter key to submit
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleLogin();
+    });
+
     async function handleLogin() {
-      const email    = document.getElementById('email').value.trim();
+      const userobj    = document.getElementById('userobj').value.trim();
       const password = document.getElementById('password').value.trim();
       const btn      = document.getElementById('loginBtn');
 
-      function showAlert(msg, type) {
-      const box = document.getElementById('alertBox');
-      box.textContent = msg;
-      box.className = 'alert alert-' + type;
-      box.style.display = 'block';
-    }
-
-      if (!email || !password) {
+      if (!userobj || !password) {
         showAlert('Please fill in all fields.', 'error');
         return;
       }
@@ -61,7 +86,7 @@
         const res  = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: email, password })
+          body: JSON.stringify({ userobj, password })
         });
         const data = await res.json();
 
@@ -80,7 +105,23 @@
       }
     }
 
-    
+    function showAlert(msg, type) {
+      const box = document.getElementById('alertBox');
+      box.textContent = msg;
+      box.className = 'alert alert-' + type;
+      box.style.display = 'block';
+    }
 
-</script>
+    function togglePw(id, btn) {
+      const input = document.getElementById(id);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁';
+      }
+    }
+
+  </script>
 {% endblock %}

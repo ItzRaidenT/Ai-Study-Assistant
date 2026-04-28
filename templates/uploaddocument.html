@@ -15,14 +15,66 @@
         <p>Upload your notes or PDF documents for AI processing.</p>
         <p>Supported formats: .txt, .pdf</p>
     </div>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="document" accept=".txt,.pdf" required>
-        <button type="submit">Upload</button>
+    <div class="alert" id="alertBox" style="display:none;"></div>
+    <form id="uploadForm" enctype="multipart/form-data" onsubmit="return handleUpload(event)">
+        <input type="file" name="file" id="fileInput" accept=".txt,.pdf" required>
+        <button type="submit" id="uploadBtn">Upload</button>
     </form>
 </div>
 
 <div>
  <a href="/" class="back-link">← Back to Home</a>
 </div>
+
+<script>
+  async function handleUpload(event) {
+    event.preventDefault();
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const alertBox = document.getElementById('alertBox');
+
+    if (!fileInput.files.length) {
+      showAlert('Please choose a file to upload.', 'error');
+      return false;
+    }
+
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Uploading...';
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    try {
+      const res = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showAlert('Upload successful! Word count: ' + data.word_count, 'success');
+        uploadBtn.textContent = 'Upload';
+        uploadBtn.disabled = false;
+        fileInput.value = '';
+      } else {
+        showAlert(data.error || 'Upload failed.', 'error');
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Upload';
+      }
+    } catch (err) {
+      showAlert('Connection error. Please try again.', 'error');
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = 'Upload';
+    }
+    return false;
+  }
+
+  function showAlert(msg, type) {
+    const box = document.getElementById('alertBox');
+    box.textContent = msg;
+    box.className = 'alert alert-' + type;
+    box.style.display = 'block';
+  }
+</script>
 
 {% endblock %}
