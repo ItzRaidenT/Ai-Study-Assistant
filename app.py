@@ -29,9 +29,6 @@ class user(db.Model):
     def __repr__(self) -> str:
         return f"User {self.id} {self.username}"
     
-with app.app_context():
-    db.create_all()
-
 #-------------------------File model------------------------------------------------
 class File(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -277,26 +274,31 @@ def index():
 
 @app.route('/login')
 def login():
-    if 'user_id' not in session:
-        return render_template('login.html')
-    return render_template('index.html')
+    if 'user_id' in session:
+        return redirect(url_for('index'))
+    return render_template('login.html')
 
 @app.route('/register')
 def register_page():
-    if 'user_id' not in session:
-        return render_template('register.html')
-    return render_template('login.html') 
+    if 'user_id' in session:
+        return redirect(url_for('index'))
+    return render_template('register.html') 
+
+@app.route('/forgot-password')
+def forgot_password_page():
+    return render_template('forgot_password.html')
 
 @app.route('/uploaddocument')
+@login_required
 def upload_document():
-    if 'user_id' in session:
-        return render_template('uploaddocument.html')
-    return render_template('login.html')   
+    return render_template('uploaddocument.html')
 
 
 
 #--------------------------------------------------------------------------------------------
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
     
