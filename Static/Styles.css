@@ -1,6 +1,10 @@
 .layout {
+    min-height: 100vh;
     margin: 0;
     font-family: 'Poppins', sans-serif;
+    background:
+        url("pattern.png"),
+        linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
     background-size: cover;
     background-position: center;
     color: white;
