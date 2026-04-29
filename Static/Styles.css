@@ -1,15 +1,8 @@
 .layout {
     margin: 0;
     font-family: 'Poppins', sans-serif;
-    background: rgb(218, 177, 177)
-    
-}   
-
-
-    background:
-        url("pattern.png"),
-        linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
-
+    background:url("pattern.png"),
+    linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
     background-size: cover;
     color: white;
 }

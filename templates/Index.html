@@ -9,32 +9,33 @@
     <div class="header">
         <div class="menu">☰</div>
         <div class="title">AI Study Assistant</div>
+        <button class="nav-logout" id="logoutBtn" onclick="logout()">Log Out</button>
     </div>
 
     <div class="grid">
 
-        <div class="card">
+        <div class="card" onclick="window.location.href='/uploaddocument'">
             <div class="card-emoji">📤</div>
             <div class="card-title">Upload Document</div>
             <div class="card-desc">Upload notes or PDF for AI processing</div>
         </div>
 
-        <div class="card">
+        <div class="card" onclick="window.location.href='/chat'">
             <div class="card-emoji">💬</div>
             <div class="card-title">Chat Assistant</div>
             <div class="card-desc">Ask questions instantly</div>
         </div>
 
-        <div class="card">
+        <div class="card" onclick="window.location.href='/summarize'">
             <div class="card-emoji">📝</div>
             <div class="card-title">AI Summarization</div>
             <div class="card-desc">Get highlighted key points</div>
         </div>
 
-        <div class="card">
+        <div class="card" onclick="window.location.href='/flashcards'">
             <div class="card-emoji">🎴</div>
             <div class="card-title">Flashcards</div>
-            <div class="card-desc">Stu efficiently and test your knowledge</div>
+            <div class="card-desc">Study efficiently and test your knowledge</div>
         </div>
 
     </div>
@@ -51,16 +52,6 @@
     </div>
 </div>
 
-<div class="history">
-    <div class="history-title">
-        <div>History</div>
-        <div class="see-all">See all</div>
-    </div>
-
-    <div class="history-item">Biology Notes</div>
-    <div class="history-item">What is the fastest land animal in the world?</div>
-    <div class="history-item">Chemistry Flashcards</div>
-</div>
 <script>
     async function logout() {
     await fetch('/logout', { method: 'POST' });

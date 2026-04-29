@@ -12,20 +12,16 @@
     </div>
 
     <div class="upload-section">
-        <div class="upload-instructions">
-            <p>Upload your notes or PDF documents for AI processing.</p>
-            <p>Supported formats: .txt, .pdf</p>
+      <div class="upload-instructions">
+          <p>Upload your notes or PDF documents for AI processing.</p>
+          <p>Supported formats: .txt, .pdf</p>
         </div>
-        <form action="/upload" method="post" enctype="multipart/form-data">
-            <input type="file" name="document" accept=".txt,.pdf" required>
-            <button type="submit">Upload</button>
-        </form>
-    </div>
-    <div class="alert" id="alertBox" style="display:none;"></div>
-    <form id="uploadForm" enctype="multipart/form-data" onsubmit="return handleUpload(event)">
+      <div class="alert" id="alertBox" style="display:none;"></div>
+      <form id="uploadForm" enctype="multipart/form-data" onsubmit="return handleUpload(event)">
         <input type="file" name="file" id="fileInput" accept=".txt,.pdf" required>
         <button type="submit" id="uploadBtn">Upload</button>
-    </form>
+      </form>
+    </div>
 </div>
 
     <div>
