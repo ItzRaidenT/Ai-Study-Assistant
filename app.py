@@ -43,6 +43,19 @@ class File(db.Model):
 
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+#-------------------------History model------------------------------------------------
+class History(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    action = db.Column(db.String(50))  # upload / delete / summarize / etc
+
+    file_id = db.Column(db.Integer, nullable=True)
+    filename = db.Column(db.String(255))
+
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 #-------------------------User authentication system------------------------------------------------
 def login_required(f):
     @wraps(f)
@@ -156,6 +169,15 @@ def upload_file():
     db.session.add(new_file)
     db.session.commit()
 
+    history = History(
+    action='upload',
+    file_id=new_file.id,
+    filename=file.filename,
+    user_id=session['user_id']
+    )
+    db.session.add(history)
+    db.session.commit()
+
     return jsonify({
     'success': True,
     'file_id': new_file.id,
@@ -179,7 +201,15 @@ def delete_file(file_id):
     if os.path.exists(filepath):
         os.remove(filepath)
 
+    history = History(
+        action='delete',
+        file_id=user_file.id,
+        filename=user_file.original_filename,
+        user_id=session['user_id']
+    )
+
     db.session.delete(user_file)
+    db.session.add(history)
     db.session.commit()
 
     return jsonify({'success': True})
@@ -265,6 +295,24 @@ def me():
         return jsonify({'success': False, 'error': 'User not found'}), 404
     return jsonify({'success': True, 'id': user.id, 'username': user.username, 'email': user.email})
 
+#---------------------History API-------------------------------------------------------------
+@app.route('/api/history', methods=['GET'])
+@login_required
+def get_history():
+    records = History.query.filter_by(user_id=session['user_id']) \
+        .order_by(History.created_at.desc()) \
+        .all()
+
+    result = []
+    for h in records:
+        result.append({
+            'action': h.action,
+            'filename': h.filename,
+            'time': h.created_at.strftime('%Y-%m-%d %H:%M')
+        })
+
+    return jsonify({'success': True, 'history': result})
+
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
 def index():
@@ -302,6 +350,15 @@ def flashcards():
 @login_required
 def summarize():
     return render_template('summary.html')
+
+@app.route("/history")
+@login_required
+def history():
+    records = History.query.filter_by(user_id=session['user_id']) \
+        .order_by(History.created_at.desc()) \
+        .all()
+
+    return render_template('history.html', history=records)
 
 
 
