@@ -293,6 +293,16 @@ def forgot_password_page():
 def upload_document():
     return render_template('uploaddocument.html')
 
+@app.route("/flashcards")
+@login_required
+def flashcards():
+    return render_template('flashcards.html')
+
+@app.route("/summarize")
+@login_required
+def summarize():
+    return render_template('summary.html')
+
 
 
 #--------------------------------------------------------------------------------------------
