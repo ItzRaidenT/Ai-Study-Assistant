@@ -6,8 +6,13 @@
 
 {% block content %}
 <div class="layout">
+        <div id="sidebar" class="sidebar">
+        <div class="close-btn" onclick="toggleMenu()">✖</div>
+        <h2>Hi 👋</h2>
+    </div>
+    
     <div class="header">
-        <div class="menu">☰</div>
+        <div class="menu" onclick="toggleMenu()">☰</div>
         <div class="title">AI Study Assistant</div>
         <button class="nav-logout" id="logoutBtn" onclick="logout()">Log Out</button>
     </div>
@@ -40,19 +45,12 @@
 
     </div>
 
-    <div class="history">
-        <div class="history-title">
-            <div>History</div>
-            <div class="see-all">See all</div>
-        </div>
-
-        <div class="history-item">Biology Notes</div>
-        <div class="history-item">What is the fastest land animal in the world?</div>
-        <div class="history-item">Chemistry Flashcards</div>
-    </div>
-</div>
-
 <script>
+    function toggleMenu() {
+    const sidebar = document.getElementById("sidebar");
+    sidebar.classList.toggle("active");
+}
+
     async function logout() {
     await fetch('/logout', { method: 'POST' });
     window.location.href = '/login';

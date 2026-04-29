@@ -1,9 +1,8 @@
 .layout {
     margin: 0;
     font-family: 'Poppins', sans-serif;
-    background:url("pattern.png"),
-    linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
     background-size: cover;
+    background-position: center;
     color: white;
 }
 
@@ -16,9 +15,45 @@
 
 .menu {
     font-size: 24px;
-    margin-right: 15px;
     cursor: pointer;
-    transform: translateY(-5px);
+    margin-right: 20px;
+}
+
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: -250px;   
+    width: 250px;
+    height: 100%;
+
+    background: hsl(0, 0%, 100%);
+    color: black;
+
+    padding: 20px;
+    transition: 0.3s;   
+
+    z-index: 1000;
+}
+
+.sidebar.active {
+    left: 0;
+}
+
+.close-btn {
+    font-size: 20px;
+    cursor: pointer;
+    margin-bottom: 20px;
+}
+
+.sidebar a {
+    display: block;
+    margin: 15px 0;
+    color: white;
+    text-decoration: none;
+}
+
+.sidebar a:hover {
+    color: #61c28d;
 }
 
 .title {
@@ -75,29 +110,6 @@
     color: #555;
 }
 
-.history {
-    padding: 20px;
-}
-
-.history-title {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    color: black;
-}
-
-.see-all {
-    font-size: 12px;
-    color: black;
-}
-
-.history-item {
-    background: #ffffc5;
-    padding: 10px;
-    border-radius: 10px;
-    margin-top: 8px;
-}
-
 .upload-section {
     padding: 20px;
     background-color: antiquewhite;
@@ -135,27 +147,9 @@
 /* ── Reset & Base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
-  --teal:       #1D9E75;
-  --teal-light: #E1F5EE;
-  --teal-dark:  #085041;
-  --teal-mid:   #0F6E56;
-  --text:       #1A1A1A;
-  --muted:      #5F5E5A;
-  --border:     #D3D1C7;
-  --bg:         #F8F7F2;
-  --surface:    #FFFFFF;
-  --danger:     #E24B4A;
-  --danger-bg:  #FCEBEB;
-  --success:    #1D9E75;
-  --success-bg: #E1F5EE;
-  --radius:     10px;
-  --radius-lg:  14px;
-}
-
 body {
   font-family: 'Segoe UI', system-ui, sans-serif;
-  background: var(--bg);
+  background: none;
   color: var(--text);
   min-height: 100vh;
   display: flex;
@@ -367,7 +361,11 @@ body {
 /* ── Right decorative panel ───────────────────────────────────────────────── */
 .deco-panel {
   flex: 1;
-  background: var(--teal-dark);
+  background:
+    url("pattern.png"),
+    linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
+  background-size: cover;
+  background-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
