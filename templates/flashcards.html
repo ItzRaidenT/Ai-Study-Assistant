@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <title>Flashcards - AI Study Assistant</title>
+{% endblock %}
+
+{% block content %}
+
+<div class="header3">
+    <div class="menu">☰</div>
+    <div class="title">Flashcards</div>
+
+</div>
+
+<div class="flashcards-section">
+    <div class="flashcard" id="flashcard">
+        <div class="question" id="question">{{ flashcards[0].question }}</div>
+        <div class="answer" id="answer">{{ flashcards[0].answer }}</div>
+    </div>
+    <button class="btn btn-secondary" id="prevBtn" onclick="prevFlashcard()">Previous</button>
+    <button class="btn btn-secondary" id="nextBtn" onclick="nextFlashcard()">Next</button>
+</div>
+
+<div>
+ <a href="/" class="back-link">← Back to Home</a>
+</div>
+
+{% endblock %}

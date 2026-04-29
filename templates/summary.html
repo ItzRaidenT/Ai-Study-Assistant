@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <title>Summarization - AI Study Assistant</title>
+{% endblock %}
+
+{% block content %}
+<div class="header3">
+    <div class="menu">☰</div>
+    <div class="title">Summarization</div>
+</div>
+
+<div class="summary-section">
+    <div class="summary-content">
+        <h2>Document Summarization</h2>
+        <p>{{ summary }}</p>
+    </div>
+</div>
+
+<div>
+ <a href="/" class="back-link">← Back to Home</a>
+</div>
+{% endblock %}
+
+
+
