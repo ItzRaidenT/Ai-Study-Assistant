@@ -1,6 +1,10 @@
 .layout {
     margin: 0;
     font-family: 'Poppins', sans-serif;
+    background: rgb(218, 177, 177)
+    
+}   
+
 
     background:
         url("pattern.png"),
@@ -51,6 +55,8 @@
     color: #1c1c1c;
 }
 
+
+/* card */
 .card {
     background: #ffffc5;
     border-radius: 20px;
@@ -131,6 +137,8 @@
   margin-left: 1000px;
 }
 
+.nav-logout:hover { background: rgba(226,75,74,0.4); }
+
 /* ── Reset & Base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -159,6 +167,7 @@ body {
   min-height: 100vh;
   display: flex;
   align-items: stretch;
+  display: block;
 }
 
 /* ── Layout ───────────────────────────────────────────────────────────────── */
@@ -352,6 +361,7 @@ body {
   font-size: 13px;
   color: var(--muted);
 }
+
 
 .link {
   color: var(--teal);
