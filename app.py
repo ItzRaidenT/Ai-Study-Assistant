@@ -2,11 +2,11 @@ from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, url_for
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import pdfplumber
 import os
 import re
-from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 
 app = Flask(__name__)
