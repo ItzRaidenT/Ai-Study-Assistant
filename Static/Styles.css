@@ -309,13 +309,18 @@ body {
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-primary {
-  background: var(--teal);
-  color: #fff;
-  border-color: var(--teal);
+  background: 
+    url("pattern.png"),
+    linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
+  color: #045224;
+  border-color: rgb(40, 226, 195);
   margin-top: 6px;
+  border-radius: 10px;
 }
 
-.btn-primary:hover:not(:disabled) { background: var(--teal-mid); }
+.btn-primary:hover:not(:disabled) { background: 
+    url("pattern.png"),
+    linear-gradient(135deg, #ce6882, #13a555, #9944bb) }
 
 .btn-full { width: 100%; }
 
