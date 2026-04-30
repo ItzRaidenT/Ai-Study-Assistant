@@ -5,79 +5,125 @@
 {% endblock %}
 
 {% block content %}
-<div class="layout">
-    <div class="header3">
-        <div class="menu">☰</div>
-        <div class="title">Upload Document</div>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-icon">📚</span>
+      <span>AI Study Assistant</span>
     </div>
+    <div class="nav-links">
+      <a href="#upload" class="nav-link active">Upload</a>
+      <a href="#history" class="nav-link">History</a>
+      <a href="/" class="nav-link">Home</a>
+      <span class="nav-user" id="navUser"></span>
+      <button class="nav-logout" id="logoutBtn" onclick="handleLogout()">Log Out</button>
+    </div>
+  </nav>
 
-    <div class="upload-section">
-      <div class="upload-instructions">
-          <p>Upload your notes or PDF documents for AI processing.</p>
-          <p>Supported formats: .txt, .pdf</p>
+  <main class="container">
+
+    <!-- Upload section -->
+    <section id="upload" class="section">
+      <h1 class="section-title">Upload Your Study Material</h1>
+      <p class="section-sub">Upload a PDF or TXT file — we'll extract the content and prepare it for AI summarisation and flashcard generation.</p>
+
+      <div class="upload-card" id="dropZone">
+        <div class="upload-icon">⬆</div>
+        <p class="upload-label">Drag & drop your file here</p>
+        <p class="upload-hint">or</p>
+        <label class="btn btn-primary" for="fileInput">Browse Files</label>
+        <input type="file" id="fileInput" accept=".pdf,.txt" hidden />
+        <p class="upload-types">Supported formats: PDF, TXT &nbsp;·&nbsp; Max size: 16 MB</p>
+      </div>
+
+      <!-- Selected file preview -->
+      <div class="file-preview" id="filePreview" style="display:none;">
+        <div class="file-info">
+          <span class="file-icon" id="fileIcon">📄</span>
+          <div>
+            <p class="file-name" id="fileName"></p>
+            <p class="file-size" id="fileSize"></p>
+          </div>
+          <button class="btn-clear" id="clearFile" title="Remove file">✕</button>
         </div>
-      <div class="alert" id="alertBox" style="display:none;"></div>
-      <form id="uploadForm" enctype="multipart/form-data" onsubmit="return handleUpload(event)">
-        <input type="file" name="file" id="fileInput" accept=".txt,.pdf" required>
-        <button type="submit" id="uploadBtn">Upload</button>
-      </form>
-    </div>
-</div>
+        <button class="btn btn-primary btn-full" id="uploadBtn" onclick="uploadFile()">
+          Extract Text
+        </button>
+      </div>
 
-    <div>
-    <a href="/" class="back-link">← Back to Home</a>
-    </div>
-</div>
+      <!-- Progress bar -->
+      <div class="progress-wrap" id="progressWrap" style="display:none;">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="progress-label" id="progressLabel">Processing...</p>
+      </div>
 
+      <!-- Result panel -->
+      <div class="result-card" id="resultCard" style="display:none;">
+        <div class="result-header">
+          <span class="result-icon">✅</span>
+          <div>
+            <h3 class="result-title" id="resultFilename"></h3>
+            <p class="result-meta" id="resultMeta"></p>
+          </div>
+        </div>
+        <div class="result-section">
+          <p class="result-label">Extracted Text Preview</p>
+          <div class="text-preview" id="textPreview"></div>
+        </div>
+        <div class="result-actions">
+          <button class="btn btn-outline" onclick="viewFullText()">View Full Text</button>
+          <button class="btn btn-primary" onclick="window.location.href='#history'">View in History</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- History section -->
+    <section id="history" class="section">
+      <div class="history-header">
+        <h2 class="section-title">Document History</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadHistory()">↻ Refresh</button>
+      </div>
+      <p class="section-sub">All previously uploaded and processed documents.</p>
+
+      <div id="historyList">
+        <div class="empty-state">
+          <p class="empty-icon">🗂</p>
+          <p>No documents yet. Upload your first file above.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Full text modal -->
+  <div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="modalTitle">Full Extracted Text</h3>
+        <button class="btn-clear" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="copyText()">📋 Copy Text</button>
+        <button class="btn btn-primary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
 <script>
-  async function handleUpload(event) {
-    event.preventDefault();
-    const uploadBtn = document.getElementById('uploadBtn');
-    const fileInput = document.getElementById('fileInput');
-    const alertBox = document.getElementById('alertBox');
-
-    if (!fileInput.files.length) {
-      showAlert('Please choose a file to upload.', 'error');
-      return false;
+  // Load username into navbar
+  fetch('/me').then(r => r.json()).then(data => {
+    if (data.success) {
+      document.getElementById('navUser').textContent = '👤 ' + data.username;
     }
+  });
 
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = 'Uploading...';
-
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
-
-    try {
-      const res = await fetch('/upload', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        showAlert('Upload successful! Word count: ' + data.word_count, 'success');
-        uploadBtn.textContent = 'Upload';
-        uploadBtn.disabled = false;
-        fileInput.value = '';
-      } else {
-        showAlert(data.error || 'Upload failed.', 'error');
-        uploadBtn.disabled = false;
-        uploadBtn.textContent = 'Upload';
-      }
-    } catch (err) {
-      showAlert('Connection error. Please try again.', 'error');
-      uploadBtn.disabled = false;
-      uploadBtn.textContent = 'Upload';
+  async function handleLogout() {
+    await fetch('/logout', { method: 'POST' });
+    window.location.href = '/login';
     }
-    return false;
-  }
-
-  function showAlert(msg, type) {
-    const box = document.getElementById('alertBox');
-    box.textContent = msg;
-    box.className = 'alert alert-' + type;
-    box.style.display = 'block';
-  }
 </script>
 
 {% endblock %}
