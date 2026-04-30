@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}
+<title>History - AI Study Assistant</title>
+{% endblock %}
+
+{% block content %}
+<h2>History</h2>
+<p>View your recent activities, including uploaded documents, generated summaries, and flashcards.</p>
+<div class="history-list">
+    {% for item in history %}
+    <div class="history-item">
+        <div class="history-icon">📄</div>
+        <div class="history-content">
+            <div class="history-filename">{{ item.filename }}</div>
+            <div class="history-action">{{ item.action }}</div>
+            <div class="history-timestamp">{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+        </div>
+    </div>
+    {% else %}
+    <p>No history found. Start uploading documents and generating summaries!</p>
+    {% endfor %}
+</div>
+{% endblock %}
