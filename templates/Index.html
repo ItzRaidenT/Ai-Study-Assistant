@@ -14,6 +14,7 @@
     <div class="header">
         <div class="menu" onclick="toggleMenu()">☰</div>
         <div class="title">AI Study Assistant</div>
+        <span class="nav-user" id="navUser"></span>
         <button class="nav-logout" id="logoutBtn" onclick="logout()">Log Out</button>
     </div>
 
@@ -45,26 +46,17 @@
 
     </div>
 
-<<<<<<< HEAD
-=======
-    <div class="history" onclick="window.location.href='/history'">
-        <div class="history-title">
-            <div>History</div>
-            <div class="see-all">See all</div>
-        </div>
-
-        <div class="history-item">Biology Notes</div>
-        <div class="history-item">What is the fastest land animal in the world?</div>
-        <div class="history-item">Chemistry Flashcards</div>
-    </div>
-</div>
-
->>>>>>> 5b60b5b56e0fa0391ccb1df5d911d1c2c33187ad
 <script>
     function toggleMenu() {
     const sidebar = document.getElementById("sidebar");
     sidebar.classList.toggle("active");
 }
+
+fetch('/me').then(r => r.json()).then(data => {
+    if (data.success) {
+      document.getElementById('navUser').textContent = '👤 ' + data.username;
+    }
+  });
 
     async function logout() {
     await fetch('/logout', { method: 'POST' });
