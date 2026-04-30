@@ -6,14 +6,15 @@
 
 {% block content %}
 <div class="layout">
+        <div id="sidebar" class="sidebar">
+        <div class="close-btn" onclick="toggleMenu()">✖</div>
+        <h2>Hi 👋</h2>
+    </div>
+    
     <div class="header">
-        <div class="menu">☰</div>
+        <div class="menu" onclick="toggleMenu()">☰</div>
         <div class="title">AI Study Assistant</div>
         <button class="nav-logout" id="logoutBtn" onclick="logout()">Log Out</button>
-    </div>
-
-    <div class="search">
-        <input type="text" placeholder="Search chat...">
     </div>
 
     <div class="grid">
@@ -44,6 +45,8 @@
 
     </div>
 
+<<<<<<< HEAD
+=======
     <div class="history" onclick="window.location.href='/history'">
         <div class="history-title">
             <div>History</div>
@@ -56,7 +59,13 @@
     </div>
 </div>
 
+>>>>>>> 5b60b5b56e0fa0391ccb1df5d911d1c2c33187ad
 <script>
+    function toggleMenu() {
+    const sidebar = document.getElementById("sidebar");
+    sidebar.classList.toggle("active");
+}
+
     async function logout() {
     await fetch('/logout', { method: 'POST' });
     window.location.href = '/login';

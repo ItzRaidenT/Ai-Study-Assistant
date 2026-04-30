@@ -231,7 +231,7 @@ body {
 /* ── Right decorative panel ───────────────────────────────────────────────── */
 .deco-panel {
   flex: 1;
-  background: var(--teal-dark);
+  background: linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -245,7 +245,7 @@ body {
   position: absolute;
   width: 400px; height: 400px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.04);
+  background: linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
   top: -120px; right: -100px;
 }
 
@@ -254,7 +254,7 @@ body {
   position: absolute;
   width: 280px; height: 280px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.04);
+  background: linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
   bottom: -80px; left: -60px;
 }
 
@@ -288,7 +288,7 @@ body {
 .feature-pills { display: flex; flex-wrap: wrap; gap: 10px; }
 
 .pill {
-  background: rgba(255,255,255,0.12);
+  background: linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
   color: rgba(255,255,255,0.9);
   padding: 7px 14px;
   border-radius: 100px;
