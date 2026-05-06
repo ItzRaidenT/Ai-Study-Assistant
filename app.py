@@ -1,5 +1,9 @@
 from functools import wraps
+<<<<<<< HEAD
 from flask import Flask, json, render_template, jsonify, request, session, url_for
+=======
+from flask import Flask,json, render_template, jsonify, request, session, url_for
+>>>>>>> main
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -500,6 +504,91 @@ def get_history():
         })
 
     return jsonify({'success': True, 'history': result})
+
+# -------------------------AI Flashcards API------------------------------------------------
+@app.route('/api/flashcards', methods=['POST'])
+@login_required
+def ai_flashcards():
+    data = request.get_json() or {}
+    file_id = data.get('file_id') or data.get('doc_id')
+    text = data.get('text', '').strip()
+    count = min(int(data.get('count', 10)), 20)  # Max 20 cards
+
+    # Get text from file_id if provided
+    if file_id and not text:
+        doc = db.session.get(File, int(file_id))
+        if not doc or doc.user_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Document not found'}), 404
+        text = doc.content or ''
+        filename = doc.original_filename or doc.filename
+    else:
+        filename = data.get('filename', 'document')
+
+    if not text:
+        return jsonify({'success': False, 'error': 'No text to generate flashcards from'}), 400
+
+    # Truncate to stay within token limits
+    words = text.split()
+    if len(words) > 12000:
+        text = ' '.join(words[:12000]) + '\n\n[Content truncated]'
+
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(f"""Generate exactly {count} flashcards from the following document for studying.
+
+Return ONLY a valid JSON array, no extra text, no markdown, no code blocks. Format:
+[
+  {{"question": "...", "answer": "..."}},
+  ...
+]
+
+Rules:
+- Questions should test understanding, not just recall
+- Answers should be concise (1-3 sentences)
+- Cover diverse topics from the document
+- Use clear, simple language
+
+Document:
+{text}""")
+
+        raw = response.text.strip()
+
+        # Strip markdown code fences if present
+        raw = re.sub(r'^(?:json)?\s*', '', raw, flags=re.MULTILINE)
+        raw = re.sub(r'\s*$', '', raw, flags=re.MULTILINE)
+        raw = raw.strip()
+
+        flashcards = json.loads(raw)
+
+        if not isinstance(flashcards, list):
+            raise ValueError("Response is not a list")
+
+        # Normalize keys
+        normalized = []
+        for card in flashcards:
+            if isinstance(card, dict):
+                normalized.append({
+                    'question': str(card.get('question', card.get('front', ''))),
+                    'answer': str(card.get('answer', card.get('back', '')))
+                })
+
+        # Log to history
+        if file_id:
+            history_entry = History(
+                action='flashcards',
+                file_id=int(file_id),
+                filename=filename,
+                user_id=session['user_id']
+            )
+            db.session.add(history_entry)
+            db.session.commit()
+
+        return jsonify({'success': True, 'flashcards': normalized, 'filename': filename})
+
+    except (json.JSONDecodeError, ValueError) as e:
+        return jsonify({'success': False, 'error': f'Failed to parse flashcards: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'AI flashcard generation failed: {str(e)}'}), 500
 
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
