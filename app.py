@@ -1,19 +1,20 @@
 from functools import wraps
-from flask import Flask, render_template, jsonify, request, session, url_for
+from flask import Flask,json, render_template, jsonify, request, session, url_for
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import inspect, text
 from datetime import datetime
 import pdfplumber
 import os
 import re
 import uuid
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='Static', template_folder='templates')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["UPLOAD_FOLDER"] = "uploads/"
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 #16MB
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB
 app.secret_key = 'Itz_1001_Mid'  # Add secret key for sessions
 db = SQLAlchemy(app)
 
@@ -38,6 +39,7 @@ class File(db.Model):
 
     filetype = db.Column(db.String(50))
     word_count = db.Column(db.Integer)
+    content = db.Column(db.Text)
 
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -106,7 +108,6 @@ def validate_password(password):
     return True, None
 
 # --------------------------Upload file system -----------------------------------------------
-
 def allow_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -158,11 +159,14 @@ def upload_file():
     }), 400
 
     word_count = get_word_count(extracted_text)
+    file_type = file.filename.rsplit('.', 1)[1].lower()
 
     new_file = File(
         filename=filename,
         original_filename=file.filename,
+        filetype=file_type,
         word_count=word_count,
+        content=extracted_text,
         user_id=session['user_id']
     )
 
@@ -181,14 +185,17 @@ def upload_file():
     return jsonify({
     'success': True,
     'file_id': new_file.id,
-    'filename': file.filename,          
-    'stored_filename': filename,        
+    'doc_id': new_file.id,
+    'filename': file.filename,
+    'stored_filename': filename,
     'word_count': word_count,
-    'preview': get_preview(extracted_text)
+    'preview': get_preview(extracted_text),
+    'full_text': extracted_text
 })
 
 #--------------------------File Delete API------------------------------------------------
 @app.route('/files/<int:file_id>', methods=['DELETE'])
+@app.route('/documents/<int:file_id>', methods=['DELETE'])
 @login_required
 def delete_file(file_id):
     user_file = db.session.get(File, file_id)
@@ -214,6 +221,45 @@ def delete_file(file_id):
 
     return jsonify({'success': True})
     
+#--------------------------Document APIs------------------------------------------------
+@app.route('/documents', methods=['GET'])
+@login_required
+def list_documents():
+    documents = File.query.filter_by(user_id=session['user_id']) \
+        .order_by(File.uploaded_at.desc()) \
+        .all()
+
+    docs = []
+    for doc in documents:
+        docs.append({
+            'id': doc.id,
+            'filename': doc.original_filename or doc.filename,
+            'stored_filename': doc.filename,
+            'filetype': doc.filetype,
+            'word_count': doc.word_count,
+            'preview': get_preview(doc.content or ''),
+            'uploaded_at': doc.uploaded_at.strftime('%Y-%m-%d %H:%M')
+        })
+
+    return jsonify({'success': True, 'documents': docs})
+
+@app.route('/documents/<int:file_id>', methods=['GET'])
+@login_required
+def get_document(file_id):
+    doc = db.session.get(File, file_id)
+    if not doc or doc.user_id != session['user_id']:
+        return jsonify({'success': False, 'error': 'Document not found'}), 404
+
+    return jsonify({
+        'success': True,
+        'id': doc.id,
+        'filename': doc.original_filename or doc.filename,
+        'filetype': doc.filetype,
+        'word_count': doc.word_count,
+        'content': doc.content or '',
+        'uploaded_at': doc.uploaded_at.strftime('%Y-%m-%d %H:%M')
+    })
+
 #--------------------------User authentication system API------------------------------------------------
 @app.route('/api/register', methods = ['POST'])
 def register():
@@ -313,12 +359,97 @@ def get_history():
 
     return jsonify({'success': True, 'history': result})
 
+# -------------------------AI Flashcards API------------------------------------------------
+@app.route('/api/flashcards', methods=['POST'])
+@login_required
+def ai_flashcards():
+    data = request.get_json() or {}
+    file_id = data.get('file_id') or data.get('doc_id')
+    text = data.get('text', '').strip()
+    count = min(int(data.get('count', 10)), 20)  # Max 20 cards
+
+    # Get text from file_id if provided
+    if file_id and not text:
+        doc = db.session.get(File, int(file_id))
+        if not doc or doc.user_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Document not found'}), 404
+        text = doc.content or ''
+        filename = doc.original_filename or doc.filename
+    else:
+        filename = data.get('filename', 'document')
+
+    if not text:
+        return jsonify({'success': False, 'error': 'No text to generate flashcards from'}), 400
+
+    # Truncate to stay within token limits
+    words = text.split()
+    if len(words) > 12000:
+        text = ' '.join(words[:12000]) + '\n\n[Content truncated]'
+
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(f"""Generate exactly {count} flashcards from the following document for studying.
+
+Return ONLY a valid JSON array, no extra text, no markdown, no code blocks. Format:
+[
+  {{"question": "...", "answer": "..."}},
+  ...
+]
+
+Rules:
+- Questions should test understanding, not just recall
+- Answers should be concise (1-3 sentences)
+- Cover diverse topics from the document
+- Use clear, simple language
+
+Document:
+{text}""")
+
+        raw = response.text.strip()
+
+        # Strip markdown code fences if present
+        raw = re.sub(r'^(?:json)?\s*', '', raw, flags=re.MULTILINE)
+        raw = re.sub(r'\s*$', '', raw, flags=re.MULTILINE)
+        raw = raw.strip()
+
+        flashcards = json.loads(raw)
+
+        if not isinstance(flashcards, list):
+            raise ValueError("Response is not a list")
+
+        # Normalize keys
+        normalized = []
+        for card in flashcards:
+            if isinstance(card, dict):
+                normalized.append({
+                    'question': str(card.get('question', card.get('front', ''))),
+                    'answer': str(card.get('answer', card.get('back', '')))
+                })
+
+        # Log to history
+        if file_id:
+            history_entry = History(
+                action='flashcards',
+                file_id=int(file_id),
+                filename=filename,
+                user_id=session['user_id']
+            )
+            db.session.add(history_entry)
+            db.session.commit()
+
+        return jsonify({'success': True, 'flashcards': normalized, 'filename': filename})
+
+    except (json.JSONDecodeError, ValueError) as e:
+        return jsonify({'success': False, 'error': f'Failed to parse flashcards: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'AI flashcard generation failed: {str(e)}'}), 500
+
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
 def index():
     if 'user_id' not in session:
         return render_template('login.html')
-    return render_template('index.html')
+    return render_template('Index.html')
 
 @app.route('/login')
 def login():
@@ -364,8 +495,23 @@ def history():
 
 #--------------------------------------------------------------------------------------------
 
+def ensure_db_schema():
+    inspector = inspect(db.engine)
+    if inspector.has_table('file'):
+        columns = [col['name'] for col in inspector.get_columns('file')]
+        if 'original_filename' not in columns:
+            db.session.execute(text('ALTER TABLE file ADD COLUMN original_filename VARCHAR(255)'))
+            db.session.commit()
+        if 'filetype' not in columns:
+            db.session.execute(text('ALTER TABLE file ADD COLUMN filetype VARCHAR(50)'))
+            db.session.commit()
+        if 'content' not in columns:
+            db.session.execute(text('ALTER TABLE file ADD COLUMN content TEXT'))
+            db.session.commit()
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        ensure_db_schema()
     app.run(debug=True)
     

@@ -2,18 +2,189 @@
 
 {% block head %}
     <title>Flashcards - AI Study Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='flashcard.css') }}">
 {% endblock %}
 
 {% block content %}
+<aside class="sidebar">
+  <div class="sidebar-brand"><div class="logo"><div class="logo-icon">📚</div><span class="logo-text">StudyAI</span></div></div>
+  <div class="sidebar-user"><div class="user-label">Signed in as</div><div class="username" id="sidebarUsername">…</div></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="/" class="nav-item"><span class="icon">⊞</span> Dashboard</a>
+      <a href="/uploaddocument" class="nav-item"><span class="icon">↑</span> Upload</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">AI Tools</div>
+      <a href="/summarize" class="nav-item"><span class="icon">≡</span> Summarize</a>
+      <a href="/flashcards" class="nav-item active"><span class="icon">◈</span> Flashcards</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Account</div>
+      <a href="/history" class="nav-item"><span class="icon">◷</span> History</a>
+    </div>
+  </nav>
+  <div class="sidebar-footer"><form method="POST" action="/logout"><button class="logout-btn" type="submit">Sign Out</button></form></div>
+</aside>
 
-<div class="header3">
-    <div class="menu">☰</div>
-    <div class="title">Flashcards</div>
+<main class="main">
+  <div class="page-header">
+    <h1>Flashcards</h1>
+    <p>Generate and study smart Q&amp;A cards from your documents.</p>
+  </div>
 
-</div>
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="controls-bar">
+    <div class="ctrl-group">
+      <label>Document</label>
+      <select id="docSelect"><option value="">— Select a document —</option></select>
+    </div>
+    <div class="ctrl-group" style="max-width:100px;">
+      <label>Cards</label>
+      <input type="number" id="cardCount" value="10" min="3" max="20"/>
+    </div>
+    <button class="btn-generate" id="generateBtn" onclick="doGenerate()">◈ Generate</button>
+  </div>
+
+  <div id="mainArea">
+    <div class="empty-state">
+      <div class="big-icon">🃏</div>
+      <p>Select a document and click Generate to create flashcards.</p>
+    </div>
+  </div>
+</main>
 
 <div>
  <a href="/" class="back-link">← Back to Home</a>
 </div>
 
+<script>
+let cards=[];let current=0;let viewMode='study';
+const urlDoc=new URLSearchParams(window.location.search).get('doc');
+
+async function loadDocs(){
+  try{
+    const r=await fetch('/documents');const d=await r.json();
+    if(!d.success)return;
+    const sel=document.getElementById('docSelect');
+    d.documents.forEach(doc=>{
+      const opt=document.createElement('option');
+      opt.value=doc.id;opt.textContent=`${doc.filename} (${doc.word_count} words)`;
+      sel.appendChild(opt);
+    });
+    if(urlDoc)sel.value=urlDoc;
+  }catch(e){}
+}
+
+async function doGenerate(){
+  const docId=document.getElementById('docSelect').value;
+  const count=parseInt(document.getElementById('cardCount').value)||10;
+  const err=document.getElementById('errorMsg');
+  err.classList.remove('show');
+  if(!docId){err.textContent='Please select a document.';err.classList.add('show');return;}
+  const btn=document.getElementById('generateBtn');
+  btn.disabled=true;
+  document.getElementById('mainArea').innerHTML=<div class="loading-state"><div class="spinner"></div><p>Generating ${count} flashcards…</p></div>;
+  try{
+    const r=await fetch('/api/flashcards',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file_id:parseInt(docId),count})});
+    const d=await r.json();
+    if(d.success&&d.flashcards.length){
+      cards=d.flashcards;current=0;
+      renderStudyView();
+    } else {
+      document.getElementById('mainArea').innerHTML=<div class="empty-state"><div class="big-icon">⚠️</div><p>${escHtml(d.error||'No flashcards generated.')}</p></div>;
+    }
+  }catch(e){
+    document.getElementById('mainArea').innerHTML=<div class="empty-state"><div class="big-icon">⚠️</div><p>Network error. Please try again.</p></div>;
+  }finally{btn.disabled=false;}
+}
+
+function renderStudyView(){
+  const maxDots=Math.min(cards.length,20);
+  const dots=Array.from({length:maxDots},(_,i)=><div class="dot ${i<current?'done':i===current?'current':''}" id="dot-${i}"></div>).join('');
+  document.getElementById('mainArea').innerHTML=`
+    <div class="study-area show" id="studyArea">
+      <div class="study-meta">
+        <div>
+          <div class="study-progress" id="progressText">Card ${current+1} of ${cards.length}</div>
+          <div class="progress-dots" id="dotsRow">${dots}</div>
+        </div>
+        <div class="view-toggle">
+          <button class="vt-btn ${viewMode==='study'?'active':''}" onclick="setView('study')">Study</button>
+          <button class="vt-btn ${viewMode==='list'?'active':''}" onclick="setView('list')">List</button>
+        </div>
+      </div>
+      <div class="flip-area" id="flipArea">
+        <div class="flip-card" id="flipCard" onclick="flipCard()">
+          <div class="card-face card-front">
+            <div class="card-tag">Question</div>
+            <div class="card-text" id="cardQ">${escHtml(cards[current].question)}</div>
+            <div class="card-hint">click to reveal ↓</div>
+          </div>
+          <div class="card-face card-back">
+            <div class="card-tag">Answer</div>
+            <div class="card-text" id="cardA">${escHtml(cards[current].answer)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="nav-row">
+        <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" ${current===0?'disabled':''}>← Prev</button>
+        <button class="nav-btn primary" onclick="flipCard()">Flip Card</button>
+        <button class="nav-btn" id="nextBtn" onclick="navigate(1)" ${current===cards.length-1?'disabled':''}>Next →</button>
+      </div>
+    </div>
+    <div class="list-view ${viewMode==='list'?'show':''}" id="listView">
+      <div class="card-grid">${cards.map((c,i)=>`
+        <div class="list-card">
+          <div class="lc-num">#${i+1}</div>
+          <div class="lc-q">${escHtml(c.question)}</div>
+          <div class="lc-a">${escHtml(c.answer)}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function setView(mode){
+  viewMode=mode;
+  document.getElementById('studyArea').classList.toggle('show',mode==='study');
+  document.getElementById('listView').classList.toggle('show',mode==='list');
+  document.querySelectorAll('.vt-btn').forEach((b,i)=>b.classList.toggle('active',i===(mode==='study'?0:1)));
+}
+
+function flipCard(){
+  document.getElementById('flipCard').classList.toggle('flipped');
+}
+
+function navigate(dir){
+  const newIdx=current+dir;
+  if(newIdx<0||newIdx>=cards.length)return;
+  current=newIdx;
+  // Update card content without re-rendering
+  document.getElementById('flipCard').classList.remove('flipped');
+  document.getElementById('cardQ').textContent=cards[current].question;
+  document.getElementById('cardA').textContent=cards[current].answer;
+  document.getElementById('progressText').textContent=`Card ${current+1} of ${cards.length}`;
+  document.getElementById('prevBtn').disabled=current===0;
+  document.getElementById('nextBtn').disabled=current===cards.length-1;
+  // Update dots
+  document.querySelectorAll('.dot').forEach((d,i)=>{
+    d.className='dot'+(i<current?' done':i===current?' current':'');
+  });
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+async function loadMe(){try{const r=await fetch('/me');const d=await r.json();if(d.success)document.getElementById('sidebarUsername').textContent=d.username;}catch(e){}}
+
+// Keyboard nav
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')navigate(-1);
+  if(e.key==='ArrowRight')navigate(1);
+  if(e.key===' '){e.preventDefault();flipCard();}
+});
+
+loadMe();loadDocs();
+</script>
 {% endblock %}
