@@ -86,7 +86,7 @@ async function doGenerate(){
   if(!docId){err.textContent='Please select a document.';err.classList.add('show');return;}
   const btn=document.getElementById('generateBtn');
   btn.disabled=true;
-  document.getElementById('mainArea').innerHTML=<div class="loading-state"><div class="spinner"></div><p>Generating ${count} flashcards…</p></div>;
+  document.getElementById('mainArea').innerHTML=`<div class="loading-state"><div class="spinner"></div><p>Generating ${count} flashcards…</p></div>`;
   try{
     const r=await fetch('/api/flashcards',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file_id:parseInt(docId),count})});
     const d=await r.json();
@@ -94,16 +94,16 @@ async function doGenerate(){
       cards=d.flashcards;current=0;
       renderStudyView();
     } else {
-      document.getElementById('mainArea').innerHTML=<div class="empty-state"><div class="big-icon">⚠️</div><p>${escHtml(d.error||'No flashcards generated.')}</p></div>;
+      document.getElementById('mainArea').innerHTML=`<div class="empty-state"><div class="big-icon">⚠</div><p>${escHtml(d.error||'No flashcards generated.')}</p></div>`;
     }
   }catch(e){
-    document.getElementById('mainArea').innerHTML=<div class="empty-state"><div class="big-icon">⚠️</div><p>Network error. Please try again.</p></div>;
+    document.getElementById('mainArea').innerHTML=`<div class="empty-state"><div class="big-icon">⚠</div><p>Network error. Please try again.</p></div>`;
   }finally{btn.disabled=false;}
 }
 
 function renderStudyView(){
   const maxDots=Math.min(cards.length,20);
-  const dots=Array.from({length:maxDots},(_,i)=><div class="dot ${i<current?'done':i===current?'current':''}" id="dot-${i}"></div>).join('');
+  const dots=Array.from({length:maxDots},(_,i)=>`<div class="dot ${i<current?'done':i===current?'current':''}" id="dot-${i}"></div>`).join('');
   document.getElementById('mainArea').innerHTML=`
     <div class="study-area show" id="studyArea">
       <div class="study-meta">
