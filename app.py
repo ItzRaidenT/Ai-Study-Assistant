@@ -1,9 +1,5 @@
 from functools import wraps
-<<<<<<< HEAD
 from flask import Flask, json, render_template, jsonify, request, session, url_for
-=======
-from flask import Flask,json, render_template, jsonify, request, session, url_for
->>>>>>> main
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
