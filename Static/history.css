@@ -1,3 +1,224 @@
+:root {
+  --bg:#0d0f14;
+  --surface:#13161e;
+  --surface2:#1a1e28;
+  --border:#2a2f3d;
+  --amber:#e8a838;
+  --amber-dim:#b07d20;
+  --amber-glow:rgba(232,168,56,0.12);
+  --text:#e8e2d4;
+  --text-muted:#7a7a8a;
+  --text-dim:#4a4a5a;
+  --red:#c94f4f;
+  --green:#4fad7a;
+  --radius:6px;
+  --sidebar:220px;
+}
+* {
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+html,body {
+  height:100%;
+}
+body {
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Crimson Pro',Georgia,serif;
+  font-size:16px;
+  line-height:1.6;
+  display:flex;
+  min-height:100vh;
+}
+a {
+  color:var(--amber);
+  text-decoration:none;
+}
+a:hover {
+  text-decoration:underline;
+}
+.sidebar {
+  width:var(--sidebar);
+  min-height:100vh;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  position:fixed;
+  top:0;
+  left:0;
+}
+.sidebar-brand {
+  padding:24px 20px 20px;
+  border-bottom:1px solid var(--border);
+}
+.logo {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.logo-icon {
+  width:32px;
+  height:32px;
+  background:var(--amber-glow);
+  border:1px solid var(--amber-dim);
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:15px;
+}
+.logo-text {
+  font-family:'Playfair Display',serif;
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:-0.02em;
+}
+.sidebar-user {
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+}
+.user-label {
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:0.08em;
+  color:var(--text-dim);
+  text-transform:uppercase;
+}
+.username {
+  font-size:14px;
+  color:var(--amber);
+  margin-top:2px;
+  font-weight:600;
+}
+.sidebar-nav {
+  flex:1;
+  padding:16px 0;
+}
+.nav-section {
+  margin-bottom:8px;
+}
+.nav-section-label {
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:0.1em;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  padding:0 20px;
+  margin-bottom:4px;
+}
+.nav-item {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:9px 20px;
+  font-size:14px;
+  color:var(--text-muted);
+  cursor:pointer;
+  transition:all 0.15s;
+  border-left:2px solid transparent;
+  text-decoration:none;
+}
+.nav-item:hover {
+  color:var(--text);
+  background:rgba(232,168,56,0.05);
+  border-left-color:var(--amber-dim);
+}
+.nav-item.active {
+  color:var(--amber);
+  background:var(--amber-glow);
+  border-left-color:var(--amber);
+}
+.nav-item .icon {
+  font-size:15px;
+  width:18px;
+  text-align:center;
+}
+.sidebar-footer {
+  padding:16px 20px;
+  border-top:1px solid var(--border);
+}
+.logout-btn {
+  width:100%;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text-muted);
+  padding:8px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.logout-btn:hover {
+  border-color:var(--red);
+  color:var(--red);
+}
+.main {
+  margin-left:var(--sidebar);
+  flex:1;
+  padding:32px 40px;
+  max-width:calc(100vw - var(--sidebar));
+}
+.page-header {
+  margin-bottom:28px;
+}
+.page-header h1 {
+  font-family:'Playfair Display',serif;
+  font-size:32px;
+  font-weight:700;
+  letter-spacing:-0.03em;
+}
+.page-header p {
+  color:var(--text-muted);
+  font-size:15px;
+  margin-top:4px;
+}
+/* Filter bar */
+.filter-bar {
+  display:flex;
+  gap:8px;
+  margin-bottom:20px;
+  flex-wrap:wrap;
+}
+.filter-btn {
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text-muted);
+  padding:6px 16px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  border-radius:20px;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.filter-btn:hover {
+  border-color:var(--amber-dim);
+  color:var(--text);
+}
+.filter-btn.active {
+  border-color:var(--amber);
+  color:var(--amber);
+  background:var(--amber-glow);
+}
+/* Timeline */
+.timeline {
+  max-width:720px;
+}
+.timeline-group {
+  margin-bottom:28px;
+}
+.tg-date {
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--text-dim);
+  margin-bottom:10px;
+  padding-bottom:6px;
+  border-bottom:1px solid var(--border);
+}
 .history-item {
   display:flex;
   align-items:center;
