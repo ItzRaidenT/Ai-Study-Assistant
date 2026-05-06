@@ -2,24 +2,148 @@
 
 {% block head %}
     <title>Summarization - AI Study Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='summary.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="header3">
-    <div class="menu">☰</div>
-    <div class="title">Summarization</div>
-</div>
-
-<div class="summary-section">
-    <div class="summary-content">
-        <h2>Document Summarization</h2>
-        <p>{{ summary }}</p>
+<aside class="sidebar">
+  <div class="sidebar-brand"><div class="logo"><div class="logo-icon">📚</div><span class="logo-text">StudyAI</span></div></div>
+  <div class="sidebar-user"><div class="user-label">Signed in as</div><div class="username" id="sidebarUsername">…</div></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="/" class="nav-item"><span class="icon">⊞</span> Dashboard</a>
+      <a href="/uploaddocument" class="nav-item"><span class="icon">↑</span> Upload</a>
     </div>
-</div>
+    <div class="nav-section">
+      <div class="nav-section-label">AI Tools</div>
+      <a href="/summarize" class="nav-item active"><span class="icon">≡</span> Summarize</a>
+      <a href="/flashcards" class="nav-item"><span class="icon">◈</span> Flashcards</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Account</div>
+      <a href="/history" class="nav-item"><span class="icon">◷</span> History</a>
+    </div>
+  </nav>
+  <div class="sidebar-footer"><form method="POST" action="/logout"><button class="logout-btn" type="submit">Sign Out</button></form></div>
+</aside>
+
+<main class="main">
+  <div class="page-header">
+    <h1>AI Summarize</h1>
+    <p>Generate structured summaries of your documents instantly.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="left-panel">
+      <div class="panel-title">Source</div>
+
+      <div class="form-group">
+        <label>Choose Document</label>
+        <select id="docSelect">
+          <option value="">— Select a document —</option>
+        </select>
+      </div>
+
+      <div class="or-divider">or paste text</div>
+
+      <div class="form-group">
+        <label>Paste Text</label>
+        <textarea id="pasteText" placeholder="Paste your text here…"></textarea>
+      </div>
+
+      <button class="btn-primary" id="summarizeBtn" onclick="doSummarize()">✦ Generate Summary</button>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <div class="result-panel" id="resultPanel">
+      <div class="result-empty" id="emptyState">
+        <div class="big-icon">🧠</div>
+        <p>Your summary will appear here.<br>Select a document or paste text to begin.</p>
+      </div>
+    </div>
+  </div>
+</main>
 
 <div>
  <a href="/" class="back-link">← Back to Home</a>
 </div>
+
+<script>
+// Pre-select doc from URL param
+const urlDoc = new URLSearchParams(window.location.search).get('doc');
+
+async function loadDocs(){
+  try{
+    const r=await fetch('/documents');const d=await r.json();
+    if(!d.success)return;
+    const sel=document.getElementById('docSelect');
+    d.documents.forEach(doc=>{
+      const opt=document.createElement('option');
+      opt.value=doc.id;opt.textContent=`${doc.filename} (${doc.word_count} words)`;
+      sel.appendChild(opt);
+    });
+    if(urlDoc) sel.value=urlDoc;
+  }catch(e){}
+}
+
+async function doSummarize(){
+  const btn=document.getElementById('summarizeBtn');
+  const err=document.getElementById('errorMsg');
+  const panel=document.getElementById('resultPanel');
+  const docId=document.getElementById('docSelect').value;
+  const text=document.getElementById('pasteText').value.trim();
+  err.classList.remove('show');
+  if(!docId && !text){err.textContent='Please select a document or paste some text.';err.classList.add('show');return;}
+  btn.disabled=true;
+  panel.innerHTML=`<div class="loading-state"><div class="spinner"></div><p>Generating summary…</p></div>`;
+  const body=docId?{file_id:parseInt(docId)}:{text};
+  try{
+    const r=await fetch('/api/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.success){
+      const html=markdownToHtml(d.summary);
+      panel.innerHTML=`
+        <div class="result-header">
+          <span class="result-filename">${escHtml(d.filename||'Pasted text')}</span>
+          <button class="copy-btn" onclick="copySummary()">Copy</button>
+        </div>
+        <div class="summary-body" id="summaryBody">${html}</div>`;
+    } else {
+      panel.innerHTML=`<div class="result-empty"><div class="big-icon">⚠</div><p>${escHtml(d.error||'Failed to summarize.')}</p></div>`;
+    }
+  }catch(e){
+    panel.innerHTML=`<div class="result-empty"><div class="big-icon">⚠</div><p>Network error. Please try again.</p></div>`;
+  }finally{btn.disabled=false;}
+}
+
+function markdownToHtml(md){
+  return md
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^\* (.+)$/gm,'<li>$1</li>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g,'<ul>$&</ul>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/^(?!<[hup])/gm,'')
+    .replace(/\n/g,' ');
+}
+
+function copySummary(){
+  const el=document.getElementById('summaryBody');
+  if(!el)return;
+  navigator.clipboard.writeText(el.innerText).then(()=>{
+    const btn=document.querySelector('.copy-btn');
+    btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',2000);
+  });
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+async function loadMe(){try{const r=await fetch('/me');const d=await r.json();if(d.success)document.getElementById('sidebarUsername').textContent=d.username;}catch(e){}}
+loadMe();loadDocs();
+</script>
+
 {% endblock %}
 
 

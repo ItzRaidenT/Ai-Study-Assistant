@@ -2,6 +2,7 @@
 
 {% block head %}
 <title>Home - AI Study Assistant</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='Styles.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -43,7 +44,11 @@
             <div class="card-title">Flashcards</div>
             <div class="card-desc">Study efficiently and test your knowledge</div>
         </div>
-
+        <div class="history" onclick="window.location.href='/history'">
+        <div class="history-title">
+            <div>History</div>
+            <div class="see-all">See all</div>
+        </div>
     </div>
 
 <script>
