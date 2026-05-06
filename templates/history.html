@@ -1,24 +1,124 @@
 {% extends "base.html" %}
 
-{% block title %}
+{% block head %}
 <title>History - AI Study Assistant</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='history.css') }}">
 {% endblock %}
 
 {% block content %}
-<h2>History</h2>
-<p>View your recent activities, including uploaded documents, generated summaries, and flashcards.</p>
-<div class="history-list">
-    {% for item in history %}
-    <div class="history-item">
-        <div class="history-icon">📄</div>
-        <div class="history-content">
-            <div class="history-filename">{{ item.filename }}</div>
-            <div class="history-action">{{ item.action }}</div>
-            <div class="history-timestamp">{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
-        </div>
+<aside class="sidebar">
+  <div class="sidebar-brand"><div class="logo"><div class="logo-icon">📚</div><span class="logo-text">StudyAI</span></div></div>
+  <div class="sidebar-user"><div class="user-label">Signed in as</div><div class="username" id="sidebarUsername">…</div></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="/" class="nav-item"><span class="icon">⊞</span> Dashboard</a>
+      <a href="/uploaddocument" class="nav-item"><span class="icon">↑</span> Upload</a>
     </div>
-    {% else %}
-    <p>No history found. Start uploading documents and generating summaries!</p>
-    {% endfor %}
-</div>
+    <div class="nav-section">
+      <div class="nav-section-label">AI Tools</div>
+      <a href="/summarize" class="nav-item"><span class="icon">≡</span> Summarize</a>
+      <a href="/flashcards" class="nav-item"><span class="icon">◈</span> Flashcards</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Account</div>
+      <a href="/history" class="nav-item active"><span class="icon">◷</span> History</a>
+    </div>
+  </nav>
+  <div class="sidebar-footer"><form method="POST" action="/logout"><button class="logout-btn" type="submit">Sign Out</button></form></div>
+</aside>
+
+<main class="main">
+  <div class="page-header">
+    <h1>Activity History</h1>
+    <p>A log of all your uploads and AI actions.</p>
+  </div>
+
+  <div class="stats-strip" id="statsStrip"></div>
+
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setFilter('upload',this)">Uploads</button>
+    <button class="filter-btn" onclick="setFilter('summarize',this)">Summaries</button>
+    <button class="filter-btn" onclick="setFilter('flashcards',this)">Flashcards</button>
+    <button class="filter-btn" onclick="setFilter('delete',this)">Deletions</button>
+  </div>
+
+  <div class="timeline" id="timeline"><div class="empty-state"><div class="big-icon">◷</div><p>Loading history…</p></div></div>
+</main>
+
+<script>
+let allHistory=[];let activeFilter='all';
+
+const badgeClass={upload:'badge-upload',delete:'badge-delete',summarize:'badge-summarize',flashcards:'badge-flashcards'};
+const actionLabel={upload:'Upload',delete:'Delete',summarize:'Summarize',flashcards:'Flashcards'};
+
+async function loadHistory(){
+  try{
+    const r=await fetch('/api/history');const d=await r.json();
+    if(!d.success)return;
+    allHistory=d.history||[];
+    renderStats();
+    renderTimeline();
+  }catch(e){}
+}
+
+function renderStats(){
+  const counts={upload:0,delete:0,summarize:0,flashcards:0};
+  allHistory.forEach(h=>{ if(h.action in counts) counts[h.action]++; });
+  const strip=document.getElementById('statsStrip');
+  strip.innerHTML=`
+    <div class="stat-pill"><span class="sp-val">${allHistory.length}</span><span class="sp-label">Total Events</span></div>
+    <div class="stat-pill"><span class="sp-val">${counts.upload}</span><span class="sp-label">Uploads</span></div>
+    <div class="stat-pill"><span class="sp-val">${counts.summarize}</span><span class="sp-label">Summaries</span></div>
+    <div class="stat-pill"><span class="sp-val">${counts.flashcards}</span><span class="sp-label">Flashcard Sets</span></div>
+  `;
+}
+
+function renderTimeline(){
+  const tl=document.getElementById('timeline');
+  const filtered=activeFilter==='all'?allHistory:allHistory.filter(h=>h.action===activeFilter);
+  if(!filtered.length){
+    tl.innerHTML=`<div class="empty-state"><div class="big-icon">◷</div><p>No ${activeFilter==='all'?'activity':'matching activity'} yet.</p></div>`;return;
+  }
+  // Group by date
+  const groups={};
+  filtered.forEach(h=>{
+    const date=h.time.split(' ')[0];
+    if(!groups[date])groups[date]=[];
+    groups[date].push(h);
+  });
+  tl.innerHTML=Object.entries(groups).map(([date,items])=>`
+    <div class="timeline-group">
+      <div class="tg-date">${formatDate(date)}</div>
+      ${items.map((h,i)=>`
+        <div class="history-item" style="animation-delay:${i*40}ms">
+          <span class="action-badge ${badgeClass[h.action]||'badge-default'}">${actionLabel[h.action]||h.action}</span>
+          <div class="hi-info">
+            <div class="hi-filename">${escHtml(h.filename||'—')}</div>
+            <div class="hi-time">${h.time.split(' ')[1]||''}</div>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function formatDate(d){
+  const today=new Date().toISOString().split('T')[0];
+  const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  if(d===today)return 'Today';if(d===yesterday)return 'Yesterday';
+  return new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+
+function setFilter(f,btn){
+  activeFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTimeline();
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+async function loadMe(){try{const r=await fetch('/me');const d=await r.json();if(d.success)document.getElementById('sidebarUsername').textContent=d.username;}catch(e){}}
+loadMe();loadHistory();
+</script>
+
 {% endblock %}
