@@ -6,11 +6,16 @@
 {% endblock %}
 
 {% block content %}
-<div class="layout">
-        <div id="sidebar" class="sidebar">
-        <div class="close-btn" onclick="toggleMenu()">✖</div>
-        <h2>Hi 👋</h2>
+<div id="sidebar" class="sidebar">
+    <div class="close-btn" onclick="toggleMenu()">✖</div>
+    <h2>Hi!👋</h2>
+    <h2>History</h2>
+
+    <div class="history-list">
+
+        <div class="history-item">No history yet</div>
     </div>
+</div>
     
     <div class="header">
         <div class="menu" onclick="toggleMenu()">☰</div>
@@ -43,11 +48,6 @@
             <div class="card-emoji">🎴</div>
             <div class="card-title">Flashcards</div>
             <div class="card-desc">Study efficiently and test your knowledge</div>
-        </div>
-        <div class="history" onclick="window.location.href='/history'">
-        <div class="history-title">
-            <div>History</div>
-            <div class="see-all">See all</div>
         </div>
     </div>
 
