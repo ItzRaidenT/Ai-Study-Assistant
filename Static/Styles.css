@@ -1,21 +1,3 @@
-:root {
-  --teal:       #1D9E75;
-  --teal-light: #E1F5EE;
-  --teal-dark:  #085041;
-  --teal-mid:   #0F6E56;
-  --text:       #1A1A1A;
-  --muted:      #5F5E5A;
-  --border:     #D3D1C7;
-  --bg:         #F8F7F2;
-  --surface:    #FFFFFF;
-  --danger:     #E24B4A;
-  --danger-bg:  #FCEBEB;
-  --success:    #1D9E75;
-  --success-bg: #E1F5EE;
-  --radius:     10px;
-  --radius-lg:  14px;
-}
-
 .layout {
     min-height: 100vh;
     margin: 0;
@@ -863,4 +845,22 @@ body {
 @media (max-width: 500px) {
   .history-preview { display: none; }
   .result-actions { flex-direction: column; }
+}
+
+/* history list */
+.history-list {
+    margin-top: 20px;
+}
+
+.history-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+
+    transition: 0.2s;
+}
+
+.history-item:hover {
+    background: rgba(255,255,255,0.1);
 }
