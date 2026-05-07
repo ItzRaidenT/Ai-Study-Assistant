@@ -1,10 +1,14 @@
 :root {
-  background: 
-    url("pattern.png"),
-    linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
-  --text:#3a372f;
-  --text-muted:#2a2a36;
-  --text-dim:#1e1e30;
+  --bg:#606d8d;
+  --surface:#576daa;
+  --surface2:#7590d3;
+  --border:#557ff3;
+  --amber:#00bb8c;
+  --amber-dim:#106781;
+  --amber-glow:rgba(232,168,56,0.12);
+  --text:#4d4941;
+  --text-muted:#32323f;
+  --text-dim:#000000;
   --red:#c94f4f;
   --green:#4fad7a;
   --radius:6px;
@@ -21,7 +25,7 @@ html,body {
 body {
   margin: 0;
   min-height: 100vh;
-  background:
+  background: 
     url("pattern.png"),
     linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
   background-size: cover;
