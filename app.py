@@ -1,10 +1,11 @@
 from functools import wraps
-from flask import Flask,json, render_template, jsonify, request, session, url_for
+from flask import Flask, json, render_template, jsonify, request, session, url_for
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import inspect, text
 from datetime import datetime
+import google.generativeai as genai
 import pdfplumber
 import os
 import re
@@ -16,6 +17,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["UPLOAD_FOLDER"] = "uploads/"
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB
 app.secret_key = 'Itz_1001_Mid'  # Add secret key for sessions
+genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 db = SQLAlchemy(app)
 
 ALLOWED_EXTENSIONS = {'pdf', 'txt'}
@@ -341,24 +343,61 @@ def me():
         return jsonify({'success': False, 'error': 'User not found'}), 404
     return jsonify({'success': True, 'id': user.id, 'username': user.username, 'email': user.email})
 
-#---------------------History API-------------------------------------------------------------
-@app.route('/api/history', methods=['GET'])
+# -------------------------AI Summarize API------------------------------------------------
+@app.route('/api/summarize', methods=['POST'])
 @login_required
-def get_history():
-    records = History.query.filter_by(user_id=session['user_id']) \
-        .order_by(History.created_at.desc()) \
-        .all()
+def ai_summarize():
+    data = request.get_json() or {}
+    file_id = data.get('file_id') or data.get('doc_id')
+    text = data.get('text', '').strip()
 
-    result = []
-    for h in records:
-        result.append({
-            'action': h.action,
-            'filename': h.filename,
-            'time': h.created_at.strftime('%Y-%m-%d %H:%M')
-        })
+    # Get text from file_id if provided
+    if file_id and not text:
+        doc = db.session.get(File, int(file_id))
+        if not doc or doc.user_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Document not found'}), 404
+        text = doc.content or ''
+        filename = doc.original_filename or doc.filename
+    else:
+        filename = data.get('filename', 'document')
 
-    return jsonify({'success': True, 'history': result})
+    if not text:
+        return jsonify({'success': False, 'error': 'No text to summarize'}), 400
 
+    # Truncate to ~12,000 words to stay within token limits
+    words = text.split()
+    if len(words) > 12000:
+        text = ' '.join(words[:12000]) + '\n\n[Content truncated for summarization]'
+
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(f"""Please summarize the following document clearly and concisely. 
+Structure your summary with:
+1. **Overview** (2-3 sentences on the main topic)
+2. **Key Points** (bullet list of 4-6 main ideas)
+3. **Conclusion** (1-2 sentences on the overall takeaway)
+
+Document:
+{text}""")
+
+        summary = response.text
+
+        # Log to history
+        if file_id:
+            history_entry = History(
+                action='summarize',
+                file_id=int(file_id),
+                filename=filename,
+                user_id=session['user_id']
+            )
+            db.session.add(history_entry)
+            db.session.commit()
+
+        return jsonify({'success': True, 'summary': summary, 'filename': filename})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'AI summarization failed: {str(e)}'}), 500
+    
 # -------------------------AI Flashcards API------------------------------------------------
 @app.route('/api/flashcards', methods=['POST'])
 @login_required
@@ -408,8 +447,8 @@ Document:
         raw = response.text.strip()
 
         # Strip markdown code fences if present
-        raw = re.sub(r'^(?:json)?\s*', '', raw, flags=re.MULTILINE)
-        raw = re.sub(r'\s*$', '', raw, flags=re.MULTILINE)
+        raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
+        raw = re.sub(r'\s*```$', '', raw, flags=re.MULTILINE)
         raw = raw.strip()
 
         flashcards = json.loads(raw)
@@ -443,6 +482,24 @@ Document:
         return jsonify({'success': False, 'error': f'Failed to parse flashcards: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI flashcard generation failed: {str(e)}'}), 500
+
+#---------------------History API-------------------------------------------------------------
+@app.route('/api/history', methods=['GET'])
+@login_required
+def get_history():
+    records = History.query.filter_by(user_id=session['user_id']) \
+        .order_by(History.created_at.desc()) \
+        .all()
+
+    result = []
+    for h in records:
+        result.append({
+            'action': h.action,
+            'filename': h.filename,
+            'time': h.created_at.strftime('%Y-%m-%d %H:%M')
+        })
+
+    return jsonify({'success': True, 'history': result})
 
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')

@@ -1,0 +1,114 @@
+:root {
+  --surface:#ffffffcc;
+  --surface2:#ffffffaa;
+  --border:#ddd;
+  --amber:#e8a838;
+  --text:#333;
+  --text-muted:#666;
+  --sidebar:220px;
+}
+
+/* RESET */
+* {
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body {
+  min-height:100vh;
+  background:
+    url("pattern.png"),
+    linear-gradient(135deg, #f4d4dc, #61c28d, #a761c2);
+  background-size: cover;
+  background-position: center;
+  font-family: sans-serif;
+}
+
+/* LAYOUT */
+.layout {
+  display:flex;
+}
+
+/* SIDEBAR */
+.sidebar {
+  position:fixed;
+  top:0;
+  left:-220px;
+  width:220px;
+  height:100%;
+  background:white;
+  transition:0.3s;
+  padding:20px;
+  z-index:1000;
+}
+
+.sidebar.active {
+  left:0;
+}
+
+/* HEADER */
+.header {
+  position:fixed;
+  top:15px;
+  left:15px;
+  font-size:24px;
+  cursor:pointer;
+  z-index:1100;
+}
+
+/* MAIN */
+.main {
+  width:100%;
+  padding:80px 40px;
+}
+
+/* PANELS */
+.two-col {
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:20px;
+}
+
+.left-panel,
+.result-panel {
+  background:white;
+  padding:20px;
+  border-radius:10px;
+}
+
+/* INPUT */
+textarea, select {
+  width:100%;
+  margin-top:10px;
+  padding:10px;
+}
+
+/* BUTTON */
+.btn-primary {
+  margin-top:15px;
+  padding:10px;
+  width:100%;
+  background:#e8a838;
+  border:none;
+  cursor:pointer;
+}
+
+/* LOADING */
+.loading-state {
+  text-align:center;
+}
+
+.spinner {
+  width:30px;
+  height:30px;
+  border:3px solid #ccc;
+  border-top-color:#e8a838;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+  margin:auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

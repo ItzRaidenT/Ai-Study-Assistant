@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
 {% block head %}
-    <title>Upload Document - AI Study Assistant</title>
+  <title>Upload Document - AI Study Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Styles.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -19,6 +20,7 @@
     </div>
   </nav>
 
+  <div class =main>
   <main class="container">
 
     <!-- Upload section -->
@@ -110,7 +112,7 @@
       </div>
     </div>
   </div>
-
+</div>
 <script src="{{ url_for('static', filename='main.js') }}"></script>
 <script>
   // Load username into navbar
