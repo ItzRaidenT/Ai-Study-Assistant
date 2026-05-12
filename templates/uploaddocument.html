@@ -1,131 +1,161 @@
 {% extends "base.html" %}
 
 {% block head %}
-  <title>Upload Document - AI Study Assistant</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='Styles.css') }}">
+<title>Documents - StudyAI</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 {% endblock %}
 
 {% block content %}
-  <nav class="navbar">
-    <div class="nav-brand">
-      <span class="nav-icon">📚</span>
-      <span>AI Study Assistant</span>
+<div class="dash">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <div>
+        <div class="logo-text">StudyAI</div>
+        <div class="logo-sub">Study Assistant</div>
+      </div>
     </div>
-    <div class="nav-links">
-      <a href="#upload" class="nav-link active">Upload</a>
-      <a href="#history" class="nav-link">History</a>
-      <a href="/" class="nav-link">Home</a>
-      <span class="nav-user" id="navUser"></span>
-      <button class="nav-logout" id="logoutBtn" onclick="handleLogout()">Log Out</button>
+
+    <nav class="nav">
+      <div class="nav-section">Study</div>
+      <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
+      <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
+
+      <div class="nav-section">Library</div>
+      <a href="/uploaddocument" class="nav-item active"><i class="ti ti-folder"></i> Documents</a>
+      <a href="/history" class="nav-item"><i class="ti ti-history"></i> History</a>
+      <a href="/" class="nav-item"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="avatar" id="userAvatar">--</div>
+        <div>
+          <div class="user-name" id="sidebarUsername"></div>
+          <div class="user-plan">Active session</div>
+        </div>
+      </div>
+      <button class="theme-btn" type="button" data-theme-toggle>
+        <i class="ti ti-moon"></i>
+      </button>
+      <form method="POST" action="/logout" style="width:100%;">
+        <button type="submit" class="btn danger btn-full"><i class="ti ti-logout"></i> Sign Out</button>
+      </form>
     </div>
-  </nav>
+  </aside>
 
-  <div class =main>
-  <main class="container">
-
-    <!-- Upload section -->
-    <section id="upload" class="section">
-      <h1 class="section-title">Upload Your Study Material</h1>
-      <p class="section-sub">Upload a PDF or TXT file — we'll extract the content and prepare it for AI summarisation and flashcard generation.</p>
-
-      <div class="upload-card" id="dropZone">
-        <div class="upload-icon">⬆</div>
-        <p class="upload-label">Drag & drop your file here</p>
-        <p class="upload-hint">or</p>
-        <label class="btn btn-primary" for="fileInput">Browse Files</label>
-        <input type="file" id="fileInput" accept=".pdf,.txt" hidden />
-        <p class="upload-types">Supported formats: PDF, TXT &nbsp;·&nbsp; Max size: 16 MB</p>
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title">
+        <h1>Documents</h1>
+        <p>Upload study material and manage extracted text.</p>
       </div>
+      <div class="topbar-actions">
+        <button class="btn" onclick="loadHistory()"><i class="ti ti-refresh"></i> Refresh</button>
+        <label class="btn primary" for="fileInput"><i class="ti ti-upload"></i> Browse</label>
+      </div>
+    </div>
 
-      <!-- Selected file preview -->
-      <div class="file-preview" id="filePreview" style="display:none;">
-        <div class="file-info">
-          <span class="file-icon" id="fileIcon">📄</span>
-          <div>
-            <p class="file-name" id="fileName"></p>
-            <p class="file-size" id="fileSize"></p>
+    <div class="content">
+      <div class="app-grid">
+        <section class="stack">
+          <div class="app-card">
+            <div class="card-title">Upload</div>
+            <div class="card-sub">Add a PDF or TXT file. StudyAI will extract the readable content.</div>
+
+            <div class="drop-zone upload-card" id="dropZone">
+              <i class="ti ti-cloud-upload"></i>
+              <p class="upload-label">Drag and drop your file here</p>
+              <p class="card-sub">PDF or TXT, up to 16 MB</p>
+              <label class="btn primary" for="fileInput" style="margin-top:14px;">Browse Files</label>
+              <input type="file" id="fileInput" accept=".pdf,.txt" hidden>
+            </div>
+
+            <div class="file-preview" id="filePreview" style="display:none; margin-top:12px;">
+              <div class="file-row">
+                <div class="doc-icon"><i class="ti ti-file" id="fileIcon"></i></div>
+                <div class="row-body">
+                  <div class="row-title" id="fileName"></div>
+                  <div class="row-meta" id="fileSize"></div>
+                </div>
+                <button class="icon-btn" id="clearFile" title="Remove file"><i class="ti ti-x"></i></button>
+              </div>
+              <button class="btn primary btn-full" id="uploadBtn" onclick="uploadFile()"><i class="ti ti-file-import"></i> Extract Text</button>
+            </div>
+
+            <div class="progress-wrap" id="progressWrap" style="display:none; margin-top:12px;">
+              <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+              </div>
+              <p class="row-meta" id="progressLabel" style="margin-top:8px;">Processing...</p>
+            </div>
           </div>
-          <button class="btn-clear" id="clearFile" title="Remove file">✕</button>
-        </div>
-        <button class="btn btn-primary btn-full" id="uploadBtn" onclick="uploadFile()">
-          Extract Text
-        </button>
-      </div>
 
-      <!-- Progress bar -->
-      <div class="progress-wrap" id="progressWrap" style="display:none;">
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
-        <p class="progress-label" id="progressLabel">Processing...</p>
-      </div>
-
-      <!-- Result panel -->
-      <div class="result-card" id="resultCard" style="display:none;">
-        <div class="result-header">
-          <span class="result-icon">✅</span>
-          <div>
-            <h3 class="result-title" id="resultFilename"></h3>
-            <p class="result-meta" id="resultMeta"></p>
+          <div class="result-card" id="resultCard" style="display:none;">
+            <div class="section-header">
+              <div>
+                <div class="card-title" id="resultFilename"></div>
+                <div class="card-sub" id="resultMeta"></div>
+              </div>
+              <i class="ti ti-circle-check" style="color:#3B6D11;"></i>
+            </div>
+            <div class="result-section">
+              <div class="card-title">Extracted Text Preview</div>
+              <div class="text-preview" id="textPreview"></div>
+            </div>
+            <div class="button-row">
+              <button class="btn" onclick="viewFullText()"><i class="ti ti-eye"></i> View Text</button>
+              <button class="btn primary" onclick="window.location.href='/summarize'"><i class="ti ti-sparkles"></i> Summarize</button>
+            </div>
           </div>
-        </div>
-        <div class="result-section">
-          <p class="result-label">Extracted Text Preview</p>
-          <div class="text-preview" id="textPreview"></div>
-        </div>
-        <div class="result-actions">
-          <button class="btn btn-outline" onclick="viewFullText()">View Full Text</button>
-          <button class="btn btn-primary" onclick="window.location.href='#history'">View in History</button>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <!-- History section -->
-    <section id="history" class="section">
-      <div class="history-header">
-        <h2 class="section-title">Document History</h2>
-        <button class="btn btn-outline btn-sm" onclick="loadHistory()">↻ Refresh</button>
-      </div>
-      <p class="section-sub">All previously uploaded and processed documents.</p>
-
-      <div id="historyList">
-        <div class="empty-state">
-          <p class="empty-icon">🗂</p>
-          <p>No documents yet. Upload your first file above.</p>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- Full text modal -->
-  <div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModal()">
-    <div class="modal" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h3 id="modalTitle">Full Extracted Text</h3>
-        <button class="btn-clear" onclick="closeModal()">✕</button>
-      </div>
-      <div class="modal-body" id="modalBody"></div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="copyText()">📋 Copy Text</button>
-        <button class="btn btn-primary" onclick="closeModal()">Close</button>
+        <section class="app-card">
+          <div class="section-header">
+            <div>
+              <div class="card-title">Document History</div>
+              <div class="card-sub">Previously uploaded and processed files.</div>
+            </div>
+          </div>
+          <div id="historyList">
+            <div class="empty-state">
+              <i class="ti ti-folder-open"></i>
+              <p>No documents yet. Upload your first file.</p>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
 </div>
+
+<div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="modalTitle">Full Extracted Text</h3>
+      <button class="icon-btn" onclick="closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="copyText()"><i class="ti ti-copy"></i> Copy Text</button>
+      <button class="btn primary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script src="{{ url_for('static', filename='main.js') }}"></script>
 <script>
-  // Load username into navbar
-  fetch('/me').then(r => r.json()).then(data => {
-    if (data.success) {
-      document.getElementById('navUser').textContent = '👤 ' + data.username;
-    }
-  });
+async function loadMe() {
+  try {
+    const r = await fetch('/me');
+    const d = await r.json();
+    if (!d.success) return;
+    document.getElementById('sidebarUsername').textContent = d.username;
+    document.getElementById('userAvatar').textContent = d.username.substring(0, 2).toUpperCase();
+  } catch (e) {}
+}
 
-  async function handleLogout() {
-    await fetch('/logout', { method: 'POST' });
-    window.location.href = '/login';
-    }
+loadMe();
 </script>
-
 {% endblock %}

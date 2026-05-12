@@ -158,7 +158,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     const name = tab.dataset.tab;
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
-    document.getElementById(panel-${name}).classList.add('visible');
+    document.getElementById(`panel-${name}`).classList.add('visible');
   });
 });
 

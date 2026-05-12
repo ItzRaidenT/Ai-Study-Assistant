@@ -127,7 +127,7 @@ function renderTimeline() {
   const filtered = activeFilter === 'all' ? allHistory : allHistory.filter(h => h.action === activeFilter);
 
   if (!filtered.length) {
-    tl.innerHTML = <div class="empty-state"><i class="ti ti-history"></i><p>No ${activeFilter === 'all' ? 'activity' : 'matching activity'} yet.</p></div>;
+    tl.innerHTML = `<div class="empty-state"><i class="ti ti-history"></i><p>No ${activeFilter === 'all' ? 'activity' : 'matching activity'} yet.</p></div>`;
     return;
   }
 

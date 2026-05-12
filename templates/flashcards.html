@@ -99,7 +99,7 @@ async function loadDocs() {
     d.documents.forEach(doc => {
       const opt = document.createElement('option');
       opt.value = doc.id;
-      opt.textContent = '${doc.filename} (${doc.word_count} words)';
+      opt.textContent = `${doc.filename} (${doc.word_count} words)`;
       sel.appendChild(opt);
     });
     if (urlDoc) sel.value = urlDoc;
@@ -120,7 +120,7 @@ async function doGenerate() {
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
-  document.getElementById('mainArea').innerHTML = <div class="loading-state"><div class="spinner"></div><p>Generating ${count} flashcards...</p></div>;
+  document.getElementById('mainArea').innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Generating ${count} flashcards...</p></div>`;
 
   try {
     const r = await fetch('/api/flashcards', {
@@ -135,10 +135,10 @@ async function doGenerate() {
       viewMode = 'study';
       renderStudyView();
     } else {
-      document.getElementById('mainArea').innerHTML = <div class="empty-state"><i class="ti ti-alert-circle"></i><p>${escHtml(d.error || 'No flashcards generated.')}</p></div>;
+      document.getElementById('mainArea').innerHTML = `<div class="empty-state"><i class="ti ti-alert-circle"></i><p>${escHtml(d.error || 'No flashcards generated.')}</p></div>`;
     }
   } catch (e) {
-    document.getElementById('mainArea').innerHTML = <div class="empty-state"><i class="ti ti-wifi-off"></i><p>Network error. Please try again.</p></div>;
+    document.getElementById('mainArea').innerHTML = `<div class="empty-state"><i class="ti ti-wifi-off"></i><p>Network error. Please try again.</p></div>`;
   } finally {
     btn.disabled = false;
   }
@@ -146,7 +146,7 @@ async function doGenerate() {
 
 function renderStudyView() {
   const dots = Array.from({ length: Math.min(cards.length, 20) }, (_, i) =>
-    <div class="dot ${i < current ? 'done' : i === current ? 'current' : ''}"></div>
+    `<div class="dot ${i < current ? 'done' : i === current ? 'current' : ''}"></div>`
   ).join('');
 
   document.getElementById('mainArea').innerHTML = `

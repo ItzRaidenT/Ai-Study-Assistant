@@ -1,15 +1,35 @@
 from functools import wraps
-from flask import Flask, json, render_template, jsonify, request, session, url_for
+from flask import Flask, render_template, jsonify, request, session, url_for
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import inspect, text
 from datetime import datetime
-import google.generativeai as genai
 import pdfplumber
+import json
 import os
 import re
+import requests
 import uuid
+
+
+def load_local_env(path='.env'):
+    if not os.path.exists(path):
+        return
+
+    with open(path, 'r', encoding='utf-8') as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
+
+
+load_local_env()
 
 app = Flask(__name__, static_folder='Static', template_folder='templates')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -17,7 +37,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["UPLOAD_FOLDER"] = "uploads/"
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB
 app.secret_key = 'Itz_1001_Mid'  # Add secret key for sessions
-genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 db = SQLAlchemy(app)
 
 ALLOWED_EXTENSIONS = {'pdf', 'txt'}
@@ -132,6 +151,66 @@ def get_word_count(text):
 
 def get_preview(text, chars=300):
     return text[:chars] + '...' if len(text) > chars else text
+
+
+# --------------------------Groq AI agent------------------------------------------------
+GROQ_CHAT_COMPLETIONS_URL = 'https://api.groq.com/openai/v1/chat/completions'
+DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile'
+
+
+def call_groq_agent(user_prompt, *, temperature=0.2, max_completion_tokens=1200):
+    api_key = os.getenv('GROQ_API_KEY')
+    if not api_key:
+        raise RuntimeError('Missing GROQ_API_KEY environment variable')
+
+    payload = {
+        'model': os.getenv('GROQ_MODEL', DEFAULT_GROQ_MODEL),
+        'messages': [
+            {
+                'role': 'system',
+                'content': (
+                    'You are StudyAI, a concise AI study agent. '
+                    'Help students turn source material into accurate, clear study outputs. '
+                    'Do not invent facts that are not supported by the provided document.'
+                )
+            },
+            {'role': 'user', 'content': user_prompt}
+        ],
+        'temperature': temperature,
+        'max_completion_tokens': max_completion_tokens
+    }
+
+    try:
+        response = requests.post(
+            GROQ_CHAT_COMPLETIONS_URL,
+            json=payload,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+                'User-Agent': 'StudyAI/1.0'
+            },
+            timeout=60
+        )
+    except requests.RequestException as e:
+        raise RuntimeError(f'Could not connect to Groq: {e}') from e
+
+    if not response.ok:
+        try:
+            error_data = response.json()
+            detail = error_data.get('error', {}).get('message') or error_data
+        except ValueError:
+            detail = response.text.strip()
+        raise RuntimeError(f'Groq API error ({response.status_code}): {detail}')
+
+    try:
+        data = response.json()
+    except ValueError as e:
+        raise RuntimeError('Groq returned a non-JSON response') from e
+
+    try:
+        return data['choices'][0]['message']['content'].strip()
+    except (KeyError, IndexError, TypeError) as e:
+        raise RuntimeError('Groq returned an unexpected response format') from e
 
 
 #--------------------------File upload API------------------------------------------------
@@ -370,17 +449,14 @@ def ai_summarize():
         text = ' '.join(words[:12000]) + '\n\n[Content truncated for summarization]'
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(f"""Please summarize the following document clearly and concisely. 
+        summary = call_groq_agent(f"""Please summarize the following document clearly and concisely.
 Structure your summary with:
 1. **Overview** (2-3 sentences on the main topic)
 2. **Key Points** (bullet list of 4-6 main ideas)
 3. **Conclusion** (1-2 sentences on the overall takeaway)
 
 Document:
-{text}""")
-
-        summary = response.text
+{text}""", temperature=0.2, max_completion_tokens=1400)
 
         # Log to history
         if file_id:
@@ -396,7 +472,7 @@ Document:
         return jsonify({'success': True, 'summary': summary, 'filename': filename})
 
     except Exception as e:
-        return jsonify({'success': False, 'error': f'AI summarization failed: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': f'Groq summarization failed: {str(e)}'}), 500
     
 # -------------------------AI Flashcards API------------------------------------------------
 @app.route('/api/flashcards', methods=['POST'])
@@ -405,7 +481,10 @@ def ai_flashcards():
     data = request.get_json() or {}
     file_id = data.get('file_id') or data.get('doc_id')
     text = data.get('text', '').strip()
-    count = min(int(data.get('count', 10)), 20)  # Max 20 cards
+    try:
+        count = max(3, min(int(data.get('count', 10)), 20))  # 3-20 cards
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Card count must be a number'}), 400
 
     # Get text from file_id if provided
     if file_id and not text:
@@ -426,8 +505,7 @@ def ai_flashcards():
         text = ' '.join(words[:12000]) + '\n\n[Content truncated]'
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(f"""Generate exactly {count} flashcards from the following document for studying.
+        raw = call_groq_agent(f"""Generate exactly {count} flashcards from the following document for studying.
 
 Return ONLY a valid JSON array, no extra text, no markdown, no code blocks. Format:
 [
@@ -442,9 +520,7 @@ Rules:
 - Use clear, simple language
 
 Document:
-{text}""")
-
-        raw = response.text.strip()
+{text}""", temperature=0.1, max_completion_tokens=1800)
 
         # Strip markdown code fences if present
         raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)

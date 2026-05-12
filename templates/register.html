@@ -1,159 +1,164 @@
 {% extends "base.html" %}
 
 {% block head %}
-    <title>Register - AI Study Assistant</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='Styles.css') }}">
+<title>Register - StudyAI</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 {% endblock %}
 
+{% block body_class %}auth-page{% endblock %}
+
 {% block content %}
-<div class="auth-layout">
-
-    <!-- Left panel -->
-    <div class="auth-panel">
-      <div class="brand">
-        <span class="brand-icon">📚</span>
-        <span class="brand-name">AI Study Assistant</span>
+<div class="auth-shell">
+  <section class="auth-panel">
+    <div class="auth-brand">
+      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <div>
+        <div class="logo-text">StudyAI</div>
+        <div class="logo-sub">Study Assistant</div>
       </div>
-      <div class="panel-body">
-        <h1 class="auth-title">Create your account</h1>
-        <p class="auth-sub">Join and start studying smarter today.</p>
-
-        <div class="alert" id="alertBox" style="display:none;"></div>
-
-        <div class="form-group">
-          <label class="form-label">Username</label>
-          <input class="form-input" type="text" id="username" placeholder="e.g. johndoe" autocomplete="username"/>
-          <span class="form-hint">At least 3 characters</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Email address</label>
-          <input class="form-input" type="email" id="email" placeholder="you@example.com" autocomplete="email"/>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <div class="input-wrap">
-            <input class="form-input" type="password" id="password" placeholder="Create a strong password"
-                   autocomplete="new-password" oninput="checkStrength(this.value)"/>
-            <button class="toggle-pw" type="button" onclick="togglePw('password', this)">👁</button>
-          </div>
-          <div class="strength-bar" id="strengthBar">
-            <div class="strength-fill" id="strengthFill"></div>
-          </div>
-          <span class="form-hint" id="strengthLabel">Min 8 chars, 1 uppercase, 1 number</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Confirm password</label>
-          <div class="input-wrap">
-            <input class="form-input" type="password" id="confirm" placeholder="Repeat your password"
-                   autocomplete="new-password"/>
-            <button class="toggle-pw" type="button" onclick="togglePw('confirm', this)">👁</button>
-          </div>
-        </div>
-
-        <button class="btn btn-primary btn-full" id="registerBtn" onclick="handleRegister()">
-          Create Account
-        </button>
-
-        <p class="auth-switch">
-          Already have an account? <a href="/login" class="link">Log in</a>
-        </p>
-      </div>
+      <button class="theme-btn auth-theme-btn" type="button" data-theme-toggle>
+        <i class="ti ti-moon"></i>
+      </button>
     </div>
 
-    <!-- Right decorative panel -->
-    <div class="deco-panel">
-      <div class="deco-content">
-        <div class="deco-icon">🚀</div>
-        <h2>Start your<br>study journey.</h2>
-        <p>Create your free account and upload your first document in under a minute.</p>
-        <div class="steps">
-          <div class="step"><span class="step-num">1</span><span>Register your account</span></div>
-          <div class="step"><span class="step-num">2</span><span>Upload a PDF or text file</span></div>
-          <div class="step"><span class="step-num">3</span><span>Get AI summaries & flashcards</span></div>
+    <div class="auth-card">
+      <h1>Create your account</h1>
+      <p>Start turning your study materials into summaries and flashcards.</p>
+
+      <div class="alert" id="alertBox"></div>
+
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input class="form-control" type="text" id="username" placeholder="e.g. johndoe" autocomplete="username">
+        <span class="form-hint">At least 3 characters</span>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input class="form-control" type="email" id="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <div class="input-wrap">
+          <input class="form-control" type="password" id="password" placeholder="Create a strong password" autocomplete="new-password" oninput="checkStrength(this.value)">
+          <button class="icon-btn field-icon" type="button" onclick="togglePw('password', this)" title="Show password"><i class="ti ti-eye"></i></button>
+        </div>
+        <div class="strength-bar" id="strengthBar">
+          <div class="strength-fill" id="strengthFill"></div>
+        </div>
+        <span class="form-hint" id="strengthLabel">Min 8 chars, 1 uppercase, 1 number</span>
+      </div>
+
+      <div class="form-group">
+        <label for="confirm">Confirm password</label>
+        <div class="input-wrap">
+          <input class="form-control" type="password" id="confirm" placeholder="Repeat your password" autocomplete="new-password">
+          <button class="icon-btn field-icon" type="button" onclick="togglePw('confirm', this)" title="Show password"><i class="ti ti-eye"></i></button>
         </div>
       </div>
+
+      <button class="btn primary btn-full" id="registerBtn" onclick="handleRegister()">
+        <i class="ti ti-user-plus"></i> Create Account
+      </button>
+
+      <p class="auth-switch">
+        Already have an account? <a href="/login">Log in</a>
+      </p>
     </div>
+  </section>
 
-  </div>
+  <aside class="auth-aside">
+    <div class="auth-aside-card">
+      <h2>Your study workflow, ready in minutes.</h2>
+      <p>Create an account, upload a document, and generate focused study aids without leaving the dashboard.</p>
+      <div class="feature-card" style="margin-top:22px;">
+        <div class="feature-row"><div><div class="feature-label">1. Register</div><div class="feature-sub">Create your StudyAI account.</div></div><i class="ti ti-user-plus"></i></div>
+        <div class="feature-row"><div><div class="feature-label">2. Upload</div><div class="feature-sub">Add PDF or TXT notes.</div></div><i class="ti ti-upload"></i></div>
+        <div class="feature-row"><div><div class="feature-label">3. Study</div><div class="feature-sub">Use summaries and flashcards.</div></div><i class="ti ti-sparkles"></i></div>
+      </div>
+    </div>
+  </aside>
+</div>
 
-  <script>
-    async function handleRegister() {
-      const username = document.getElementById('username').value.trim();
-      const email    = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const confirm  = document.getElementById('confirm').value;
-      const btn      = document.getElementById('registerBtn');
+<script>
+async function handleRegister() {
+  const username = document.getElementById('username').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const confirm = document.getElementById('confirm').value;
+  const btn = document.getElementById('registerBtn');
 
-      if (!username || !email || !password || !confirm) {
-        showAlert('Please fill in all fields.', 'error'); return;
-      }
-      if (password !== confirm) {
-        showAlert('Passwords do not match.', 'error'); return;
-      }
+  if (!username || !email || !password || !confirm) {
+    showAlert('Please fill in all fields.', 'error');
+    return;
+  }
+  if (password !== confirm) {
+    showAlert('Passwords do not match.', 'error');
+    return;
+  }
 
-      btn.disabled = true;
-      btn.textContent = 'Creating account...';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> Creating account...';
 
-      try {
-        const res  = await fetch('/api/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, email, password, confirm })
-        });
-        const data = await res.json();
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password, confirm })
+    });
+    const data = await res.json();
 
-if (data.success) {
-          showAlert('Account created! Redirecting...', 'success');
-          setTimeout(() => window.location.href = '/', 800);
-        } else {
-          showAlert(data.error, 'error');
-          btn.disabled = false;
-          btn.textContent = 'Create Account';
-        }
-      } catch {
-        showAlert('Connection error. Please try again.', 'error');
-        btn.disabled = false;
-        btn.textContent = 'Create Account';
-      }
+    if (data.success) {
+      showAlert('Account created. Redirecting...', 'success');
+      setTimeout(() => window.location.href = '/', 800);
+    } else {
+      showAlert(data.error, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-user-plus"></i> Create Account';
     }
+  } catch {
+    showAlert('Connection error. Please try again.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-user-plus"></i> Create Account';
+  }
+}
 
-    function checkStrength(pw) {
-      const fill  = document.getElementById('strengthFill');
-      const label = document.getElementById('strengthLabel');
-      let score = 0;
-      if (pw.length >= 8)          score++;
-      if (/[A-Z]/.test(pw))        score++;
-      if (/\d/.test(pw))           score++;
-      if (/[^A-Za-z0-9]/.test(pw)) score++;
+function checkStrength(pw) {
+  const fill = document.getElementById('strengthFill');
+  const label = document.getElementById('strengthLabel');
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/\d/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
 
-      const levels = [
-        { pct: '0%',   color: '#E24B4A', text: 'Too short' },
-        { pct: '33%',  color: '#E24B4A', text: 'Weak' },
-        { pct: '55%',  color: '#BA7517', text: 'Fair' },
-        { pct: '78%',  color: '#1D9E75', text: 'Good' },
-        { pct: '100%', color: '#085041', text: 'Strong ✓' },
-      ];
-      const l = levels[Math.min(score, 4)];
-      fill.style.width = pw.length ? l.pct : '0%';
-      fill.style.background = l.color;
-      label.textContent = pw.length ? l.text : 'Min 8 chars, 1 uppercase, 1 number';
-      label.style.color = pw.length ? l.color : '';
-    }
+  const levels = [
+    { pct: '0%', color: '#A32D2D', text: 'Too short' },
+    { pct: '33%', color: '#A32D2D', text: 'Weak' },
+    { pct: '55%', color: '#854F0B', text: 'Fair' },
+    { pct: '78%', color: '#3B6D11', text: 'Good' },
+    { pct: '100%', color: '#185FA5', text: 'Strong' }
+  ];
+  const l = levels[Math.min(score, 4)];
+  fill.style.width = pw.length ? l.pct : '0%';
+  fill.style.background = l.color;
+  label.textContent = pw.length ? l.text : 'Min 8 chars, 1 uppercase, 1 number';
+  label.style.color = pw.length ? l.color : '';
+}
 
-    function togglePw(id, btn) {
-      const input = document.getElementById(id);
-      input.type = input.type === 'password' ? 'text' : 'password';
-      btn.textContent = input.type === 'password' ? '👁' : '🙈';
-    }
+function togglePw(id, btn) {
+  const input = document.getElementById(id);
+  const icon = btn.querySelector('i');
+  input.type = input.type === 'password' ? 'text' : 'password';
+  icon.className = input.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
+}
 
-    function showAlert(msg, type) {
-      const box = document.getElementById('alertBox');
-      box.textContent = msg;
-      box.className = 'alert alert-' + type;
-      box.style.display = 'block';
-    }
-  </script>
+function showAlert(msg, type) {
+  const box = document.getElementById('alertBox');
+  box.textContent = msg;
+  box.className = 'alert alert-' + type + ' show';
+}
+</script>
 {% endblock %}

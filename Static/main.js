@@ -1,18 +1,15 @@
-// ── State ─────────────────────────────────────────────────────────────────
 let selectedFile = null;
 let currentFullText = '';
 
-// ── DOM refs ──────────────────────────────────────────────────────────────
-const dropZone    = document.getElementById('dropZone');
-const fileInput   = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
 const filePreview = document.getElementById('filePreview');
-const progressWrap= document.getElementById('progressWrap');
-const resultCard  = document.getElementById('resultCard');
+const progressWrap = document.getElementById('progressWrap');
+const resultCard = document.getElementById('resultCard');
 
-// ── Drag & Drop ────────────────────────────────────────────────────────────
 dropZone.addEventListener('click', () => fileInput.click());
 
-dropZone.addEventListener('dragover', (e) => {
+dropZone.addEventListener('dragover', e => {
   e.preventDefault();
   dropZone.classList.add('drag-over');
 });
@@ -21,7 +18,7 @@ dropZone.addEventListener('dragleave', () => {
   dropZone.classList.remove('drag-over');
 });
 
-dropZone.addEventListener('drop', (e) => {
+dropZone.addEventListener('drop', e => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
   const file = e.dataTransfer.files[0];
@@ -34,19 +31,17 @@ fileInput.addEventListener('change', () => {
 
 document.getElementById('clearFile').addEventListener('click', clearSelection);
 
-// ── File selection ─────────────────────────────────────────────────────────
 function handleFileSelect(file) {
-  const allowed = ['application/pdf', 'text/plain'];
   const ext = file.name.split('.').pop().toLowerCase();
 
   if (!['pdf', 'txt'].includes(ext)) {
-    showToast('❌ Only PDF and TXT files are supported', 'danger');
+    showToast('Only PDF and TXT files are supported');
     return;
   }
 
   selectedFile = file;
 
-  document.getElementById('fileIcon').textContent = ext === 'pdf' ? '📕' : '📝';
+  document.getElementById('fileIcon').className = ext === 'pdf' ? 'ti ti-file-type-pdf' : 'ti ti-file-text';
   document.getElementById('fileName').textContent = file.name;
   document.getElementById('fileSize').textContent = formatSize(file.size);
 
@@ -65,11 +60,9 @@ function clearSelection() {
   progressWrap.style.display = 'none';
 }
 
-// ── Upload & Process ───────────────────────────────────────────────────────
 async function uploadFile() {
   if (!selectedFile) return;
 
-  // Show progress
   filePreview.style.display = 'none';
   progressWrap.style.display = 'block';
   animateProgress();
@@ -84,16 +77,14 @@ async function uploadFile() {
     });
 
     const data = await response.json();
-
     progressWrap.style.display = 'none';
 
     if (!data.success) {
-      showToast('❌ ' + data.error, 'danger');
+      showToast(data.error || 'Upload failed');
       clearSelection();
       return;
     }
 
-    // Show result
     currentFullText = data.full_text;
     document.getElementById('resultFilename').textContent = data.filename;
     document.getElementById('resultMeta').textContent =
@@ -101,37 +92,37 @@ async function uploadFile() {
     document.getElementById('textPreview').textContent = data.preview;
     resultCard.style.display = 'block';
 
-    showToast('✅ File processed successfully!');
+    showToast('File processed successfully');
     loadHistory();
-
   } catch (err) {
     progressWrap.style.display = 'none';
-    showToast('❌ Upload failed — please try again', 'danger');
+    showToast('Upload failed. Please try again');
     clearSelection();
   }
 }
 
-// ── Progress animation ─────────────────────────────────────────────────────
 function animateProgress() {
   const fill = document.getElementById('progressFill');
   const label = document.getElementById('progressLabel');
   const steps = [
-    [20,  'Uploading file...'],
-    [45,  'Reading document...'],
-    [70,  'Extracting text...'],
-    [90,  'Saving to history...'],
+    [20, 'Uploading file...'],
+    [45, 'Reading document...'],
+    [70, 'Extracting text...'],
+    [90, 'Saving to history...'],
     [100, 'Done!']
   ];
   let i = 0;
   const interval = setInterval(() => {
-    if (i >= steps.length) { clearInterval(interval); return; }
+    if (i >= steps.length) {
+      clearInterval(interval);
+      return;
+    }
     fill.style.width = steps[i][0] + '%';
     label.textContent = steps[i][1];
     i++;
   }, 400);
 }
 
-// ── Full text modal ────────────────────────────────────────────────────────
 function viewFullText() {
   document.getElementById('modalTitle').textContent = 'Full Extracted Text';
   document.getElementById('modalBody').textContent = currentFullText;
@@ -144,11 +135,10 @@ function closeModal() {
 
 function copyText() {
   navigator.clipboard.writeText(currentFullText).then(() => {
-    showToast('📋 Text copied to clipboard');
+    showToast('Text copied to clipboard');
   });
 }
 
-// ── History ────────────────────────────────────────────────────────────────
 async function loadHistory() {
   const list = document.getElementById('historyList');
 
@@ -159,7 +149,7 @@ async function loadHistory() {
     if (!data.success || data.documents.length === 0) {
       list.innerHTML = `
         <div class="empty-state">
-          <p class="empty-icon">🗂</p>
+          <i class="ti ti-folder-open"></i>
           <p>No documents yet. Upload your first file above.</p>
         </div>`;
       return;
@@ -167,21 +157,20 @@ async function loadHistory() {
 
     list.innerHTML = data.documents.map(doc => `
       <div class="history-item" id="doc-${doc.id}">
-        <div class="history-file-icon">${doc.filename.endsWith('.pdf') ? '📕' : '📝'}</div>
+        <div class="history-file-icon"><i class="ti ${doc.filename.endsWith('.pdf') ? 'ti-file-type-pdf' : 'ti-file-text'}"></i></div>
         <div class="history-info">
           <p class="history-name">${escapeHtml(doc.filename)}</p>
           <p class="history-meta">${doc.word_count.toLocaleString()} words · ${doc.uploaded_at}</p>
           <p class="history-preview">${escapeHtml(doc.preview)}</p>
         </div>
         <div class="history-actions">
-          <button class="btn-icon" title="View text" onclick="viewDoc(${doc.id})">👁</button>
-          <button class="btn-icon danger" title="Delete" onclick="deleteDoc(${doc.id})">🗑</button>
+          <button class="btn-icon" title="View text" onclick="viewDoc(${doc.id})"><i class="ti ti-eye"></i></button>
+          <button class="btn-icon danger" title="Delete" onclick="deleteDoc(${doc.id})"><i class="ti ti-trash"></i></button>
         </div>
       </div>
     `).join('');
-
   } catch (err) {
-    list.innerHTML = `<p style="color:var(--muted);text-align:center;padding:2rem;">Could not load history.</p>`;
+    list.innerHTML = `<p style="color:var(--text-secondary);text-align:center;padding:2rem;">Could not load history.</p>`;
   }
 }
 
@@ -204,20 +193,18 @@ async function deleteDoc(id) {
 
   if (data.success) {
     document.getElementById(`doc-${id}`)?.remove();
-    showToast('🗑 Document deleted');
+    showToast('Document deleted');
 
-    // Show empty state if no docs left
     if (!document.querySelector('.history-item')) {
       document.getElementById('historyList').innerHTML = `
         <div class="empty-state">
-          <p class="empty-icon">🗂</p>
+          <i class="ti ti-folder-open"></i>
           <p>No documents yet. Upload your first file above.</p>
         </div>`;
     }
   }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -225,7 +212,7 @@ function formatSize(bytes) {
 }
 
 function escapeHtml(str) {
-  return str
+  return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -244,5 +231,4 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────
 loadHistory();

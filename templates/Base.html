@@ -5,14 +5,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Study Assistant</title>
+    <script>
+        (function () {
+            var savedTheme = localStorage.getItem('theme');
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            var useDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+            document.documentElement.setAttribute('data-theme', useDark ? 'dark' : 'light');
+        })();
+    </script>
 
     {% block head %}{% endblock %}
 </head>
 
-<body>
+<body class="{% block body_class %}{% endblock %}">
 
     {% block content %}{% endblock %}
 
+    <script>
+        (function () {
+            function isDark() {
+                return document.documentElement.getAttribute('data-theme') === 'dark';
+            }
+
+            function syncThemeButtons() {
+                var dark = isDark();
+                document.querySelectorAll('[data-theme-toggle]').forEach(function (btn) {
+                    var icon = btn.querySelector('i');
+                    if (icon) icon.className = dark ? 'ti ti-sun' : 'ti ti-moon';
+                    btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+                    btn.setAttribute('title', dark ? 'Switch to light mode' : 'Switch to dark mode');
+
+                    var label = btn.querySelector('[data-theme-label]');
+                    if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
+                });
+            }
+
+            window.setStudyTheme = function (theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+                syncThemeButtons();
+            };
+
+            window.toggleStudyTheme = function () {
+                window.setStudyTheme(isDark() ? 'light' : 'dark');
+            };
+
+            document.querySelectorAll('[data-theme-toggle]').forEach(function (btn) {
+                btn.addEventListener('click', window.toggleStudyTheme);
+            });
+
+            syncThemeButtons();
+
+            function sidebarIsCollapsed(sidebar) {
+                return sidebar.classList.contains('collapsed');
+            }
+
+            function syncSidebarButton(btn, collapsed) {
+                var icon = btn.querySelector('i');
+                if (!icon) {
+                    icon = document.createElement('i');
+                    btn.appendChild(icon);
+                }
+
+                icon.className = collapsed ? 'ti ti-layout-sidebar-left-expand' : 'ti ti-layout-sidebar-left-collapse';
+                btn.setAttribute('aria-label', collapsed ? 'Open sidebar' : 'Close sidebar');
+                btn.setAttribute('title', collapsed ? 'Open sidebar' : 'Close sidebar');
+            }
+
+            function syncSidebar(sidebar) {
+                var collapsed = sidebarIsCollapsed(sidebar);
+                sidebar.querySelectorAll('[data-sidebar-toggle]').forEach(function (btn) {
+                    syncSidebarButton(btn, collapsed);
+                });
+            }
+
+            window.toggleSidebar = function () {
+                document.querySelectorAll('.sidebar').forEach(function (sidebar) {
+                    sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', sidebarIsCollapsed(sidebar) ? 'true' : 'false');
+                    syncSidebar(sidebar);
+                });
+            };
+
+            document.querySelectorAll('.sidebar').forEach(function (sidebar) {
+                var logo = sidebar.querySelector('.sidebar-logo');
+                if (logo && !logo.querySelector('[data-sidebar-toggle]')) {
+                    var btn = document.createElement('button');
+                    btn.className = 'sidebar-toggle';
+                    btn.type = 'button';
+                    btn.setAttribute('data-sidebar-toggle', '');
+                    logo.appendChild(btn);
+                }
+
+                if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                    sidebar.classList.add('collapsed');
+                }
+
+                sidebar.querySelectorAll('[data-sidebar-toggle]').forEach(function (btn) {
+                    btn.addEventListener('click', window.toggleSidebar);
+                });
+
+                syncSidebar(sidebar);
+            });
+        })();
+    </script>
 </body>
 </html>
 
