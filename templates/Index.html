@@ -1,76 +1,184 @@
-{% extends "Base.html" %}
+{% extends "base.html" %}
 
 {% block head %}
-<title>Home - AI Study Assistant</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='Styles.css') }}">
+<title>StudyAI - Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 {% endblock %}
 
 {% block content %}
-<div id="sidebar" class="sidebar">
-    <div class="close-btn" onclick="toggleMenu()">✖</div>
-    <h2>Hi!👋</h2>
-    <h2>History</h2>
-
-    <div class="history-list">
-
-        <div class="history-item">No history yet</div>
+<div class="dash">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <div>
+        <div class="logo-text">StudyAI</div>
+        <div class="logo-sub">Study Assistant</div>
+      </div>
+      <button class="closesidebar" type="button" data-sidebar-toggle></button>
     </div>
+
+    <nav class="nav">
+      <div class="nav-section">Study</div>
+      <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
+      <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
+
+      <div class="nav-section">Library</div>
+      <a href="/uploaddocument" class="nav-item"><i class="ti ti-folder"></i> Documents</a>
+      <a href="/history" class="nav-item"><i class="ti ti-history"></i> History</a>
+      <a href="/" class="nav-item active"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="avatar" id="userAvatar">--</div>
+        <div>
+          <div class="user-name" id="usernameDash"></div>
+          <div class="user-plan">Active session</div>
+        </div>
+      </div>
+
+      <button class="theme-btn" id="theme-toggle" type="button" data-theme-toggle>
+        <i class="ti ti-moon"></i>
+      </button>
+
+      <form method="POST" action="/logout" style="width:100%; margin-top:8px;">
+        <button type="submit" class="btn danger btn-full"><i class="ti ti-logout"></i> Sign Out</button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-tabs">
+        <div class="tab active" data-tab="overview"><i class="ti ti-chart-bar"></i> Overview</div>
+        <div class="tab" data-tab="models"><i class="ti ti-cpu"></i> Models</div>
+        <div class="tab" data-tab="settings"><i class="ti ti-settings"></i> Settings</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" onclick="window.location.href='/uploaddocument'"><i class="ti ti-upload"></i> Upload</button>
+        <button class="btn primary" onclick="window.location.href='/summarize'"><i class="ti ti-sparkles"></i> New Session</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="panel visible" id="panel-overview">
+        <div class="section-header">
+          <div class="page-title">
+            <h1>Welcome to StudyAI</h1>
+            <p>Your AI study assistant at a glance.</p>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label"><i class="ti ti-file-text"></i> Summaries</div>
+            <div class="stat-value">Ready</div>
+            <div class="stat-sub">Turn documents into concise notes.</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><i class="ti ti-cards"></i> Flashcards</div>
+            <div class="stat-value">Smart</div>
+            <div class="stat-sub">Generate Q&A cards for review.</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><i class="ti ti-folder"></i> Documents</div>
+            <div class="stat-value">Organized</div>
+            <div class="stat-sub">Keep extracted text in one place.</div>
+          </div>
+        </div>
+
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-icon ai-sum"><i class="ti ti-sparkles"></i></div>
+            <div class="activity-body">
+              <div class="activity-title">Start a summary</div>
+              <div class="activity-meta">Create structured notes from uploaded material.</div>
+            </div>
+            <button class="btn" onclick="window.location.href='/summarize'">Open</button>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon ai-flash"><i class="ti ti-cards"></i></div>
+            <div class="activity-body">
+              <div class="activity-title">Build flashcards</div>
+              <div class="activity-meta">Practice with generated question and answer cards.</div>
+            </div>
+            <button class="btn" onclick="window.location.href='/flashcards'">Open</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-models">
+        <div class="model-grid">
+          <div class="model-card selected">
+            <span class="model-tag tag-balanced">Balanced</span>
+            <div class="model-name">Groq Study Agent</div>
+            <div class="model-desc">Fast Groq-backed summaries and flashcards for study workflows.</div>
+            <span class="active-badge">Active</span>
+          </div>
+          <div class="model-card">
+            <span class="model-tag tag-fast">Fast</span>
+            <div class="model-name">llama-3.3-70b-versatile</div>
+            <div class="model-desc">Default model. Override with the GROQ_MODEL environment variable.</div>
+          </div>
+          <div class="model-card">
+            <span class="model-tag tag-powerful">Detailed</span>
+            <div class="model-name">Deep Study</div>
+            <div class="model-desc">Richer notes for longer study sessions.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-settings">
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h3><i class="ti ti-bell"></i> Preferences</h3>
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-label">Study reminders</div>
+                <div class="toggle-sub">Enable lightweight notification prompts.</div>
+              </div>
+              <button class="toggle" type="button"></button>
+            </div>
+          </div>
+          <div class="settings-card">
+            <h3><i class="ti ti-moon"></i> Appearance</h3>
+            <button class="btn" id="settings-theme-toggle" type="button" data-theme-toggle><i class="ti ti-moon"></i> <span data-theme-label>Dark mode</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-    
-    <div class="header">
-        <div class="menu" onclick="toggleMenu()">☰</div>
-        <div class="title">AI Study Assistant</div>
-        <span class="nav-user" id="navUser"></span>
-        <button class="nav-logout" id="logoutBtn" onclick="logout()">Log Out</button>
-    </div>
-
-    <div class="grid">
-
-        <div class="card" onclick="window.location.href='/uploaddocument'">
-            <div class="card-emoji">📤</div>
-            <div class="card-title">Upload Document</div>
-            <div class="card-desc">Upload notes or PDF for AI processing</div>
-        </div>
-
-        <div class="card" onclick="window.location.href='/chat'">
-            <div class="card-emoji">💬</div>
-            <div class="card-title">Chat Assistant</div>
-            <div class="card-desc">Ask questions instantly</div>
-        </div>
-
-        <div class="card" onclick="window.location.href='/summarize'">
-            <div class="card-emoji">📝</div>
-            <div class="card-title">AI Summarization</div>
-            <div class="card-desc">Get highlighted key points</div>
-        </div>
-
-        <div class="card" onclick="window.location.href='/flashcards'">
-            <div class="card-emoji">🎴</div>
-            <div class="card-title">Flashcards</div>
-            <div class="card-desc">Study efficiently and test your knowledge</div>
-        </div>
-    </div>
 
 <script>
-    function toggleMenu() {
-    const sidebar = document.getElementById("sidebar");
-    sidebar.classList.toggle("active");
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const name = tab.dataset.tab;
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+    document.getElementById(`panel-${name}`).classList.add('visible');
+  });
+});
+
+document.querySelectorAll('.toggle').forEach(btn => {
+  btn.addEventListener('click', () => btn.classList.toggle('on'));
+});
+
+async function loadMe() {
+  try {
+    const res = await fetch('/me');
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('usernameDash').textContent = data.username;
+      document.getElementById('userAvatar').textContent = data.username.substring(0, 2).toUpperCase();
+    }
+  } catch (err) {
+    console.error('Failed to load user info', err);
+  }
 }
 
-fetch('/me').then(r => r.json()).then(data => {
-    if (data.success) {
-      document.getElementById('navUser').textContent = '👤 ' + data.username;
-    }
-  });
-
-    async function logout() {
-    await fetch('/logout', { method: 'POST' });
-    window.location.href = '/login';
-  }
-
-  function escHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
+loadMe();
 </script>
-
 {% endblock %}

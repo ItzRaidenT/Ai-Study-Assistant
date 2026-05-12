@@ -1,128 +1,126 @@
 {% extends "base.html" %}
 
 {% block head %}
-    <title>Login - AI Study Assistant</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='Styles.css') }}">
+<title>Login - StudyAI</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 {% endblock %}
 
+{% block body_class %}auth-page{% endblock %}
+
 {% block content %}
-<div class="auth-layout">
-
-    <!-- Left panel -->
-    <div class="auth-panel">
-      <div class="brand">
-        <span class="brand-icon">📚</span>
-        <span class="brand-name">AI Study Assistant</span>
+<div class="auth-shell">
+  <section class="auth-panel">
+    <div class="auth-brand">
+      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <div>
+        <div class="logo-text">StudyAI</div>
+        <div class="logo-sub">Study Assistant</div>
       </div>
-      <div class="panel-body">
-        <h1 class="auth-title">Welcome back</h1>
-        <p class="auth-sub">Log in to access your study materials and history.</p>
-
-        <div class="alert" id="alertBox" style="display:none;"></div>
-
-        <div class="form-group">
-          <label class="form-label">Email address or Username</label>
-          <input class="form-input" type="text" id="userobj" placeholder="you@example.com or your username" autocomplete="email"/>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <div class="input-wrap">
-            <input class="form-input" type="password" id="password" placeholder="Enter your password" autocomplete="current-password"/>
-            <button class="toggle-pw" type="button" onclick="togglePw('password', this)">👁</button>
-          </div>
-          <p class="auth-forgot">
-            <a href="/forgot-password" class="link">Forgot Password?</a>
-          </p>
-        </div>
-
-        <button class="btn btn-primary btn-full" id="loginBtn" onclick="handleLogin()">
-          Log In
-        </button>
-
-        <p class="auth-switch">
-          Don't have an account? <a href="/register" class="link">Create one</a>
-        </p>
-        
-      </div>
+      <button class="theme-btn auth-theme-btn" type="button" data-theme-toggle>
+        <i class="ti ti-moon"></i>
+      </button>
     </div>
 
-    <!-- Right decorative panel -->
-    <div class="deco-panel">
-      <div class="deco-content">
-        <div class="deco-icon">🎓</div>
-        <h2>Study smarter,<br>not harder.</h2>
-        <p>Upload your notes and let AI do the heavy lifting — instant summaries and flashcards, ready in seconds.</p>
-        <div class="feature-pills">
-          <span class="pill">📄 PDF Upload</span>
-          <span class="pill">✨ AI Summary</span>
-          <span class="pill">🃏 Flashcards</span>
-          <span class="pill">📂 History</span>
+    <div class="auth-card">
+      <h1>Welcome back</h1>
+      <p>Log in to access your study materials and history.</p>
+
+      <div class="alert" id="alertBox"></div>
+
+      <div class="form-group">
+        <label for="userobj">Email address or username</label>
+        <input class="form-control" type="text" id="userobj" placeholder="you@example.com" autocomplete="email">
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <div class="input-wrap">
+          <input class="form-control" type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
+          <button class="icon-btn field-icon" type="button" onclick="togglePw('password', this)" title="Show password"><i class="ti ti-eye"></i></button>
         </div>
       </div>
+
+      <p class="auth-switch" style="text-align:left; margin-top:8px;">
+        <a href="/forgot-password">Forgot password?</a>
+      </p>
+
+      <button class="btn primary btn-full" id="loginBtn" onclick="handleLogin()">
+        <i class="ti ti-login"></i> Log In
+      </button>
+
+      <p class="auth-switch">
+        Don't have an account? <a href="/register">Create one</a>
+      </p>
     </div>
+  </section>
 
-  </div>
+  <aside class="auth-aside">
+    <div class="auth-aside-card">
+      <h2>Study smarter with a calmer workspace.</h2>
+      <p>Upload notes, create summaries, generate flashcards, and keep your study history in one focused dashboard.</p>
+      <div class="pill-row">
+        <span class="pill"><i class="ti ti-file-type-pdf"></i> PDF Upload</span>
+        <span class="pill"><i class="ti ti-sparkles"></i> AI Summary</span>
+        <span class="pill"><i class="ti ti-cards"></i> Flashcards</span>
+        <span class="pill"><i class="ti ti-history"></i> History</span>
+      </div>
+    </div>
+  </aside>
+</div>
 
-  <script>
-    // Allow Enter key to submit
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleLogin();
+<script>
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleLogin();
+});
+
+async function handleLogin() {
+  const userobj = document.getElementById('userobj').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const btn = document.getElementById('loginBtn');
+
+  if (!userobj || !password) {
+    showAlert('Please fill in all fields.', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> Logging in...';
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userobj, password })
     });
+    const data = await res.json();
 
-    async function handleLogin() {
-      const userobj    = document.getElementById('userobj').value.trim();
-      const password = document.getElementById('password').value.trim();
-      const btn      = document.getElementById('loginBtn');
-
-      if (!userobj || !password) {
-        showAlert('Please fill in all fields.', 'error');
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = 'Logging in...';
-
-      try {
-        const res  = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userobj, password })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          showAlert('Login successful! Redirecting...', 'success');
-          setTimeout(() => window.location.href = '/', 800);
-        } else {
-          showAlert(data.error, 'error');
-          btn.disabled = false;
-          btn.textContent = 'Log In';
-        }
-      } catch {
-        showAlert('Connection error. Please try again.', 'error');
-        btn.disabled = false;
-        btn.textContent = 'Log In';
-      }
+    if (data.success) {
+      showAlert('Login successful. Redirecting...', 'success');
+      setTimeout(() => window.location.href = '/', 800);
+    } else {
+      showAlert(data.error, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-login"></i> Log In';
     }
+  } catch {
+    showAlert('Connection error. Please try again.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-login"></i> Log In';
+  }
+}
 
-    function showAlert(msg, type) {
-      const box = document.getElementById('alertBox');
-      box.textContent = msg;
-      box.className = 'alert alert-' + type;
-      box.style.display = 'block';
-    }
+function showAlert(msg, type) {
+  const box = document.getElementById('alertBox');
+  box.textContent = msg;
+  box.className = 'alert alert-' + type + ' show';
+}
 
-    function togglePw(id, btn) {
-      const input = document.getElementById(id);
-      if (input.type === 'password') {
-        input.type = 'text';
-        btn.textContent = '🙈';
-      } else {
-        input.type = 'password';
-        btn.textContent = '👁';
-      }
-    }
-
-  </script>
+function togglePw(id, btn) {
+  const input = document.getElementById(id);
+  const icon = btn.querySelector('i');
+  input.type = input.type === 'password' ? 'text' : 'password';
+  icon.className = input.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
+}
+</script>
 {% endblock %}
