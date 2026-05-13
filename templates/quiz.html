@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block head %}
+<title>Quiz - StudyAI</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="dash">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <div>
+        <div class="logo-text">StudyAI</div>
+        <div class="logo-sub">Study Assistant</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">Study</div>
+      <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
+      <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
+      <a href="/quiz" class="nav-item active"><i class="ti ti-list-check"></i> Quiz</a>
+
+      <div class="nav-section">Library</div>
+      <a href="/uploaddocument" class="nav-item"><i class="ti ti-folder"></i> Documents</a>
+      <a href="/history" class="nav-item"><i class="ti ti-history"></i> History</a>
+      <a href="/" class="nav-item"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="avatar" id="userAvatar">--</div>
+        <div>
+          <div class="user-name" id="sidebarUsername"></div>
+          <div class="user-plan">Active session</div>
+        </div>
+      </div>
+      <button class="theme-btn" type="button" data-theme-toggle>
+        <i class="ti ti-moon"></i>
+      </button>
+      <form method="POST" action="/logout" style="width:100%;">
+        <button type="submit" class="btn danger btn-full"><i class="ti ti-logout"></i> Sign Out</button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title">
+        <h1>Quiz</h1>
+        <p>Generate multiple-choice practice questions from a document.</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" onclick="window.location.href='/uploaddocument'"><i class="ti ti-upload"></i> Upload</button>
+        <button class="btn primary" id="generateBtn" onclick="doGenerate()"><i class="ti ti-list-check"></i> Generate</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="app-card">
+        <div class="toolbar-row">
+          <div class="form-group quiz-doc-field">
+            <label for="docSelect">Document</label>
+            <select id="docSelect"><option value="">Select a document</option></select>
+          </div>
+          <div class="form-group quiz-count-field">
+            <label for="questionCount">Questions</label>
+            <input type="number" id="questionCount" value="8" min="3" max="15">
+          </div>
+          <button class="btn primary" onclick="doGenerate()"><i class="ti ti-sparkles"></i> Generate</button>
+        </div>
+      </div>
+
+      <div class="error-msg" id="errorMsg"></div>
+
+      <div id="mainArea">
+        <div class="empty-state">
+          <i class="ti ti-list-check"></i>
+          <p>Select a document and generate a quiz.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let quiz = [];
+let current = 0;
+let answers = [];
+let checked = false;
+const urlDoc = new URLSearchParams(window.location.search).get('doc');
+
+async function loadDocs() {
+  try {
+    const r = await fetch('/documents');
+    const d = await r.json();
+    if (!d.success) return;
+    const sel = document.getElementById('docSelect');
+    d.documents.forEach(doc => {
+      const opt = document.createElement('option');
+      opt.value = doc.id;
+      opt.textContent = `${doc.filename} (${doc.word_count} words)`;
+      sel.appendChild(opt);
+    });
+    if (urlDoc) sel.value = urlDoc;
+  } catch (e) {}
+}
+
+async function doGenerate() {
+  const docId = document.getElementById('docSelect').value;
+  const count = parseInt(document.getElementById('questionCount').value) || 8;
+  const err = document.getElementById('errorMsg');
+  err.classList.remove('show');
+
+  if (!docId) {
+    err.textContent = 'Please select a document.';
+    err.classList.add('show');
+    return;
+  }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  document.getElementById('mainArea').innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Generating ${count} quiz questions...</p></div>`;
+
+  try {
+    const r = await fetch('/api/quizzes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: parseInt(docId), count })
+    });
+    const d = await r.json();
+    if (d.success && d.quiz.length) {
+      quiz = d.quiz;
+      current = 0;
+      answers = Array(quiz.length).fill(null);
+      checked = false;
+      renderQuiz();
+    } else {
+      document.getElementById('mainArea').innerHTML = `<div class="empty-state"><i class="ti ti-alert-circle"></i><p>${escHtml(d.error || 'No quiz questions generated.')}</p></div>`;
+    }
+  } catch (e) {
+    document.getElementById('mainArea').innerHTML = `<div class="empty-state"><i class="ti ti-wifi-off"></i><p>Network error. Please try again.</p></div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderQuiz() {
+  const item = quiz[current];
+  const dots = quiz.map((_, i) => `<button class="quiz-dot ${answers[i] ? 'answered' : ''} ${i === current ? 'current' : ''}" onclick="goTo(${i})">${i + 1}</button>`).join('');
+  const progress = answers.filter(Boolean).length;
+
+  document.getElementById('mainArea').innerHTML = `
+    <div class="app-card quiz-shell">
+      <div class="section-header">
+        <div>
+          <div class="card-title">Question ${current + 1} of ${quiz.length}</div>
+          <div class="card-sub">${progress} answered</div>
+        </div>
+        <div class="quiz-dots">${dots}</div>
+      </div>
+
+      <div class="quiz-question">${escHtml(item.question)}</div>
+      <div class="quiz-options">
+        ${item.options.map(option => optionButton(option)).join('')}
+      </div>
+
+      ${checked ? feedbackBlock(item) : ''}
+
+      <div class="button-row quiz-actions">
+        <button class="btn" onclick="navigate(-1)" ${current === 0 ? 'disabled' : ''}><i class="ti ti-arrow-left"></i> Prev</button>
+        <button class="btn primary" onclick="checkAnswer()" ${!answers[current] || checked ? 'disabled' : ''}><i class="ti ti-check"></i> Check</button>
+        <button class="btn" onclick="navigate(1)" ${current === quiz.length - 1 ? 'disabled' : ''}>Next <i class="ti ti-arrow-right"></i></button>
+        <button class="btn" onclick="showResults()" ${progress < quiz.length ? 'disabled' : ''}><i class="ti ti-chart-bar"></i> Results</button>
+      </div>
+    </div>
+  `;
+}
+
+function optionButton(option) {
+  const item = quiz[current];
+  const selected = answers[current] === option;
+  let state = selected ? 'selected' : '';
+  if (checked && option === item.answer) state += ' correct';
+  if (checked && selected && option !== item.answer) state += ' wrong';
+  return `<button class="quiz-option ${state}" onclick='selectAnswer(${JSON.stringify(option)})'>${escHtml(option)}</button>`;
+}
+
+function feedbackBlock(item) {
+  const correct = answers[current] === item.answer;
+  return `
+    <div class="quiz-feedback ${correct ? 'correct' : 'wrong'}">
+      <div class="card-kicker">${correct ? 'Correct' : 'Review'}</div>
+      <div>${correct ? 'Nice work.' : `Correct answer: ${escHtml(item.answer)}`}</div>
+      ${item.explanation ? `<p>${escHtml(item.explanation)}</p>` : ''}
+    </div>
+  `;
+}
+
+function selectAnswer(option) {
+  if (checked) return;
+  answers[current] = option;
+  renderQuiz();
+}
+
+function checkAnswer() {
+  checked = true;
+  renderQuiz();
+}
+
+function navigate(dir) {
+  const newIdx = current + dir;
+  if (newIdx < 0 || newIdx >= quiz.length) return;
+  current = newIdx;
+  checked = false;
+  renderQuiz();
+}
+
+function goTo(index) {
+  current = index;
+  checked = false;
+  renderQuiz();
+}
+
+function showResults() {
+  const score = quiz.reduce((sum, item, i) => sum + (answers[i] === item.answer ? 1 : 0), 0);
+  const percent = Math.round((score / quiz.length) * 100);
+
+  document.getElementById('mainArea').innerHTML = `
+    <div class="app-card quiz-results">
+      <div class="section-header">
+        <div>
+          <div class="card-title">Quiz Results</div>
+          <div class="card-sub">${score} of ${quiz.length} correct</div>
+        </div>
+        <div class="quiz-score">${percent}%</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${percent}%"></div></div>
+      <div class="card-grid quiz-review">
+        ${quiz.map((item, i) => `
+          <div class="app-card">
+            <div class="card-kicker">${answers[i] === item.answer ? 'Correct' : 'Missed'} · Question ${i + 1}</div>
+            <div class="card-title">${escHtml(item.question)}</div>
+            <div class="card-sub">Your answer: ${escHtml(answers[i])}</div>
+            <div class="card-sub">Correct answer: ${escHtml(item.answer)}</div>
+            ${item.explanation ? `<div class="quiz-explanation">${escHtml(item.explanation)}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+      <div class="button-row quiz-actions">
+        <button class="btn" onclick="restartQuiz()"><i class="ti ti-refresh"></i> Try Again</button>
+        <button class="btn primary" onclick="doGenerate()"><i class="ti ti-sparkles"></i> New Quiz</button>
+      </div>
+    </div>
+  `;
+}
+
+function restartQuiz() {
+  current = 0;
+  answers = Array(quiz.length).fill(null);
+  checked = false;
+  renderQuiz();
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function loadMe() {
+  try {
+    const r = await fetch('/me');
+    const d = await r.json();
+    if (!d.success) return;
+    document.getElementById('sidebarUsername').textContent = d.username;
+    document.getElementById('userAvatar').textContent = d.username.substring(0, 2).toUpperCase();
+  } catch (e) {}
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') navigate(-1);
+  if (e.key === 'ArrowRight') navigate(1);
+  if (e.key === 'Enter' && answers[current] && !checked) checkAnswer();
+});
+
+loadMe();
+loadDocs();
+</script>
+{% endblock %}

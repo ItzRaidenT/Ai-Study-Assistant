@@ -213,6 +213,19 @@ def call_groq_agent(user_prompt, *, temperature=0.2, max_completion_tokens=1200)
         raise RuntimeError('Groq returned an unexpected response format') from e
 
 
+def extract_json_array(raw):
+    raw = re.sub(r'^```(?:json)?\s*', '', raw.strip(), flags=re.MULTILINE)
+    raw = re.sub(r'\s*```$', '', raw, flags=re.MULTILINE).strip()
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        match = re.search(r'\[[\s\S]*\]', raw)
+        if not match:
+            raise
+        return json.loads(match.group(0))
+
+
 #--------------------------File upload API------------------------------------------------
 @app.route('/upload', methods = ['POST'])
 @login_required
@@ -522,12 +535,7 @@ Rules:
 Document:
 {text}""", temperature=0.1, max_completion_tokens=1800)
 
-        # Strip markdown code fences if present
-        raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
-        raw = re.sub(r'\s*```$', '', raw, flags=re.MULTILINE)
-        raw = raw.strip()
-
-        flashcards = json.loads(raw)
+        flashcards = extract_json_array(raw)
 
         if not isinstance(flashcards, list):
             raise ValueError("Response is not a list")
@@ -558,6 +566,105 @@ Document:
         return jsonify({'success': False, 'error': f'Failed to parse flashcards: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI flashcard generation failed: {str(e)}'}), 500
+
+# -------------------------AI Quiz API------------------------------------------------
+@app.route('/api/quizzes', methods=['POST'])
+@login_required
+def ai_quizzes():
+    data = request.get_json() or {}
+    file_id = data.get('file_id') or data.get('doc_id')
+    text = data.get('text', '').strip()
+    try:
+        count = max(3, min(int(data.get('count', 8)), 15))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Question count must be a number'}), 400
+
+    if file_id and not text:
+        doc = db.session.get(File, int(file_id))
+        if not doc or doc.user_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Document not found'}), 404
+        text = doc.content or ''
+        filename = doc.original_filename or doc.filename
+    else:
+        filename = data.get('filename', 'document')
+
+    if not text:
+        return jsonify({'success': False, 'error': 'No text to generate a quiz from'}), 400
+
+    words = text.split()
+    if len(words) > 12000:
+        text = ' '.join(words[:12000]) + '\n\n[Content truncated]'
+
+    try:
+        raw = call_groq_agent(f"""Generate exactly {count} multiple-choice quiz questions from the following document.
+
+Return ONLY a valid JSON array, no extra text, no markdown, no code blocks. Format:
+[
+  {{
+    "question": "...",
+    "options": ["...", "...", "...", "..."],
+    "answer": "...",
+    "explanation": "..."
+  }}
+]
+
+Rules:
+- Each question must have exactly 4 plausible options
+- The answer must exactly match one of the options
+- Questions should test comprehension and application, not only definitions
+- Explanations should be 1-2 concise sentences and grounded in the document
+- Cover different parts of the document
+
+Document:
+{text}""", temperature=0.1, max_completion_tokens=2200)
+
+        quiz_items = extract_json_array(raw)
+        if not isinstance(quiz_items, list):
+            raise ValueError('Response is not a list')
+
+        normalized = []
+        for item in quiz_items:
+            if not isinstance(item, dict):
+                continue
+
+            question = str(item.get('question', '')).strip()
+            options = item.get('options', item.get('choices', []))
+            if not isinstance(options, list):
+                continue
+            options = [str(option).strip() for option in options if str(option).strip()]
+
+            answer = item.get('answer', item.get('correct_answer', ''))
+            if isinstance(answer, int) and 0 <= answer < len(options):
+                answer = options[answer]
+            answer = str(answer).strip()
+
+            if question and len(options) == 4 and answer in options:
+                normalized.append({
+                    'question': question,
+                    'options': options,
+                    'answer': answer,
+                    'explanation': str(item.get('explanation', '')).strip()
+                })
+
+        if not normalized:
+            raise ValueError('No valid quiz questions generated')
+
+        if file_id:
+            history_entry = History(
+                action='quiz',
+                file_id=int(file_id),
+                filename=filename,
+                user_id=session['user_id']
+            )
+            db.session.add(history_entry)
+            db.session.commit()
+
+        return jsonify({'success': True, 'quiz': normalized, 'filename': filename})
+
+    except (json.JSONDecodeError, ValueError) as e:
+        return jsonify({'success': False, 'error': f'Failed to parse quiz: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'AI quiz generation failed: {str(e)}'}), 500
 
 #---------------------History API-------------------------------------------------------------
 @app.route('/api/history', methods=['GET'])
@@ -609,6 +716,11 @@ def upload_document():
 @login_required
 def flashcards():
     return render_template('flashcards.html')
+
+@app.route("/quiz")
+@login_required
+def quiz():
+    return render_template('quiz.html')
 
 @app.route("/summarize")
 @login_required
