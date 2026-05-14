@@ -48,7 +48,7 @@ class user(db.Model):
     email = db.Column(db.String(80), nullable = False, unique = True)
     password = db.Column(db.String(225), nullable = False)
 
-    def __repr__(self) -> str:
+    def _repr_(self) -> str:
         return f"User {self.id} {self.username}"
     
 #-------------------------File model------------------------------------------------
@@ -74,6 +74,7 @@ class History(db.Model):
 
     file_id = db.Column(db.Integer, nullable=True)
     filename = db.Column(db.String(255))
+    generated_content = db.Column(db.Text)
 
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
@@ -211,6 +212,19 @@ def call_groq_agent(user_prompt, *, temperature=0.2, max_completion_tokens=1200)
         return data['choices'][0]['message']['content'].strip()
     except (KeyError, IndexError, TypeError) as e:
         raise RuntimeError('Groq returned an unexpected response format') from e
+
+
+def extract_json_array(raw):
+    raw = re.sub(r'^(?:json)?\s*', '', raw.strip(), flags=re.MULTILINE)
+    raw = re.sub(r'\s*$', '', raw, flags=re.MULTILINE).strip()
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        match = re.search(r'\[[\s\S]*\]', raw)
+        if not match:
+            raise
+        return json.loads(match.group(0))
 
 
 #--------------------------File upload API------------------------------------------------
@@ -422,6 +436,57 @@ def me():
         return jsonify({'success': False, 'error': 'User not found'}), 404
     return jsonify({'success': True, 'id': user.id, 'username': user.username, 'email': user.email})
 
+@app.route('/me', methods=['PUT'])
+@login_required
+def update_me():
+    current_user = get_user_by_id(session['user_id'])
+    if not current_user:
+        session.clear()
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    email = (data.get('email') or '').strip().lower()
+    current_password = (data.get('current_password') or '').strip()
+    new_password = (data.get('new_password') or '').strip()
+
+    if not username or not email:
+        return jsonify({'success': False, 'error': 'Username and email are required'}), 400
+    if len(username) < 3:
+        return jsonify({'success': False, 'error': 'Username must be at least 3 characters'}), 400
+    if not validate_email(email):
+        return jsonify({'success': False, 'error': 'Invalid email address'}), 400
+
+    username_owner = get_user_by_username(username)
+    if username_owner and username_owner.id != current_user.id:
+        return jsonify({'success': False, 'error': 'Username already taken'}), 400
+
+    email_owner = get_user_by_email(email)
+    if email_owner and email_owner.id != current_user.id:
+        return jsonify({'success': False, 'error': 'Email already registered'}), 400
+
+    if new_password:
+        if not current_password:
+            return jsonify({'success': False, 'error': 'Current password is required to change password'}), 400
+        if not check_password_hash(current_user.password, current_password):
+            return jsonify({'success': False, 'error': 'Current password is incorrect'}), 401
+        valid, msg = validate_password(new_password)
+        if not valid:
+            return jsonify({'success': False, 'error': msg}), 400
+        current_user.password = generate_password_hash(new_password)
+
+    current_user.username = username
+    current_user.email = email
+    db.session.commit()
+
+    session['username'] = current_user.username
+    return jsonify({
+        'success': True,
+        'id': current_user.id,
+        'username': current_user.username,
+        'email': current_user.email
+    })
+
 # -------------------------AI Summarize API------------------------------------------------
 @app.route('/api/summarize', methods=['POST'])
 @login_required
@@ -451,9 +516,9 @@ def ai_summarize():
     try:
         summary = call_groq_agent(f"""Please summarize the following document clearly and concisely.
 Structure your summary with:
-1. **Overview** (2-3 sentences on the main topic)
-2. **Key Points** (bullet list of 4-6 main ideas)
-3. **Conclusion** (1-2 sentences on the overall takeaway)
+1. *Overview* (2-3 sentences on the main topic)
+2. *Key Points* (bullet list of 4-6 main ideas)
+3. *Conclusion* (1-2 sentences on the overall takeaway)
 
 Document:
 {text}""", temperature=0.2, max_completion_tokens=1400)
@@ -522,12 +587,7 @@ Rules:
 Document:
 {text}""", temperature=0.1, max_completion_tokens=1800)
 
-        # Strip markdown code fences if present
-        raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
-        raw = re.sub(r'\s*```$', '', raw, flags=re.MULTILINE)
-        raw = raw.strip()
-
-        flashcards = json.loads(raw)
+        flashcards = extract_json_array(raw)
 
         if not isinstance(flashcards, list):
             raise ValueError("Response is not a list")
@@ -547,6 +607,7 @@ Document:
                 action='flashcards',
                 file_id=int(file_id),
                 filename=filename,
+                generated_content=json.dumps(normalized),
                 user_id=session['user_id']
             )
             db.session.add(history_entry)
@@ -559,6 +620,106 @@ Document:
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI flashcard generation failed: {str(e)}'}), 500
 
+# -------------------------AI Quiz API------------------------------------------------
+@app.route('/api/quizzes', methods=['POST'])
+@login_required
+def ai_quizzes():
+    data = request.get_json() or {}
+    file_id = data.get('file_id') or data.get('doc_id')
+    text = data.get('text', '').strip()
+    try:
+        count = max(3, min(int(data.get('count', 8)), 15))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Question count must be a number'}), 400
+
+    if file_id and not text:
+        doc = db.session.get(File, int(file_id))
+        if not doc or doc.user_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Document not found'}), 404
+        text = doc.content or ''
+        filename = doc.original_filename or doc.filename
+    else:
+        filename = data.get('filename', 'document')
+
+    if not text:
+        return jsonify({'success': False, 'error': 'No text to generate a quiz from'}), 400
+
+    words = text.split()
+    if len(words) > 12000:
+        text = ' '.join(words[:12000]) + '\n\n[Content truncated]'
+
+    try:
+        raw = call_groq_agent(f"""Generate exactly {count} multiple-choice quiz questions from the following document.
+
+Return ONLY a valid JSON array, no extra text, no markdown, no code blocks. Format:
+[
+  {{
+    "question": "...",
+    "options": ["...", "...", "...", "..."],
+    "answer": "...",
+    "explanation": "..."
+  }}
+]
+
+Rules:
+- Each question must have exactly 4 plausible options
+- The answer must exactly match one of the options
+- Questions should test comprehension and application, not only definitions
+- Explanations should be 1-2 concise sentences and grounded in the document
+- Cover different parts of the document
+
+Document:
+{text}""", temperature=0.1, max_completion_tokens=2200)
+
+        quiz_items = extract_json_array(raw)
+        if not isinstance(quiz_items, list):
+            raise ValueError('Response is not a list')
+
+        normalized = []
+        for item in quiz_items:
+            if not isinstance(item, dict):
+                continue
+
+            question = str(item.get('question', '')).strip()
+            options = item.get('options', item.get('choices', []))
+            if not isinstance(options, list):
+                continue
+            options = [str(option).strip() for option in options if str(option).strip()]
+
+            answer = item.get('answer', item.get('correct_answer', ''))
+            if isinstance(answer, int) and 0 <= answer < len(options):
+                answer = options[answer]
+            answer = str(answer).strip()
+
+            if question and len(options) == 4 and answer in options:
+                normalized.append({
+                    'question': question,
+                    'options': options,
+                    'answer': answer,
+                    'explanation': str(item.get('explanation', '')).strip()
+                })
+
+        if not normalized:
+            raise ValueError('No valid quiz questions generated')
+
+        if file_id:
+            history_entry = History(
+                action='quiz',
+                file_id=int(file_id),
+                filename=filename,
+                generated_content=json.dumps(normalized),
+                user_id=session['user_id']
+            )
+            db.session.add(history_entry)
+            db.session.commit()
+
+        return jsonify({'success': True, 'quiz': normalized, 'filename': filename})
+
+    except (json.JSONDecodeError, ValueError) as e:
+        return jsonify({'success': False, 'error': f'Failed to parse quiz: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'AI quiz generation failed: {str(e)}'}), 500
+
 #---------------------History API-------------------------------------------------------------
 @app.route('/api/history', methods=['GET'])
 @login_required
@@ -569,13 +730,85 @@ def get_history():
 
     result = []
     for h in records:
+        generated_available = bool(h.generated_content)
+        content_available = generated_available
+        if h.file_id:
+            doc = db.session.get(File, h.file_id)
+            content_available = content_available or bool(doc and doc.user_id == session['user_id'] and doc.content)
+
         result.append({
+            'id': h.id,
             'action': h.action,
+            'file_id': h.file_id,
             'filename': h.filename,
-            'time': h.created_at.strftime('%Y-%m-%d %H:%M')
+            'time': h.created_at.strftime('%Y-%m-%d %H:%M'),
+            'content_available': content_available,
+            'generated_available': generated_available
         })
 
     return jsonify({'success': True, 'history': result})
+
+@app.route('/api/history/<int:history_id>', methods=['GET'])
+@login_required
+def get_history_detail(history_id):
+    record = db.session.get(History, history_id)
+    if not record or record.user_id != session['user_id']:
+        return jsonify({'success': False, 'error': 'History item not found'}), 404
+
+    generated_items = None
+    if record.generated_content:
+        try:
+            generated_items = json.loads(record.generated_content)
+        except (TypeError, ValueError):
+            generated_items = None
+
+    if not record.file_id:
+        return jsonify({
+            'success': True,
+            'id': record.id,
+            'action': record.action,
+            'filename': record.filename,
+            'time': record.created_at.strftime('%Y-%m-%d %H:%M'),
+            'generated_items': generated_items,
+            'content': '',
+            'message': 'No document is linked to this history item.'
+        })
+
+    doc = db.session.get(File, record.file_id)
+    if not doc or doc.user_id != session['user_id']:
+        return jsonify({
+            'success': True,
+            'id': record.id,
+            'action': record.action,
+            'filename': record.filename,
+            'time': record.created_at.strftime('%Y-%m-%d %H:%M'),
+            'generated_items': generated_items,
+            'content': '',
+            'message': 'The linked document is no longer available.'
+        })
+
+    return jsonify({
+        'success': True,
+        'id': record.id,
+        'action': record.action,
+        'filename': doc.original_filename or record.filename or doc.filename,
+        'time': record.created_at.strftime('%Y-%m-%d %H:%M'),
+        'filetype': doc.filetype,
+        'word_count': doc.word_count,
+        'generated_items': generated_items,
+        'content': doc.content or ''
+    })
+
+@app.route('/api/history/<int:history_id>', methods=['DELETE'])
+@login_required
+def delete_history_item(history_id):
+    record = db.session.get(History, history_id)
+    if not record or record.user_id != session['user_id']:
+        return jsonify({'success': False, 'error': 'History item not found'}), 404
+
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'success': True})
 
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
@@ -610,6 +843,11 @@ def upload_document():
 def flashcards():
     return render_template('flashcards.html')
 
+@app.route("/quiz")
+@login_required
+def quiz():
+    return render_template('quiz.html')
+
 @app.route("/summarize")
 @login_required
 def summarize():
@@ -641,10 +879,14 @@ def ensure_db_schema():
         if 'content' not in columns:
             db.session.execute(text('ALTER TABLE file ADD COLUMN content TEXT'))
             db.session.commit()
+    if inspector.has_table('history'):
+        columns = [col['name'] for col in inspector.get_columns('history')]
+        if 'generated_content' not in columns:
+            db.session.execute(text('ALTER TABLE history ADD COLUMN generated_content TEXT'))
+            db.session.commit()
 
-if __name__ == '__main__':
+if __name__ == '_main_':
     with app.app_context():
         db.create_all()
         ensure_db_schema()
     app.run(debug=True)
-    
