@@ -50,16 +50,21 @@
     <div class="topbar">
       <div class="page-title">
         <h1>Documents</h1>
-        <p>Upload study material and manage extracted text.</p>
       </div>
       <div class="topbar-actions">
-        <button class="btn" onclick="loadHistory()"><i class="ti ti-refresh"></i> Refresh</button>
+        <button class="btn" id="documentRefreshBtn" type="button" onclick="loadHistory(this)"><i class="ti ti-refresh"></i> Refresh</button>
         <label class="btn primary" for="fileInput"><i class="ti ti-upload"></i> Browse</label>
       </div>
     </div>
 
     <div class="content">
-      <div class="app-grid">
+      <div class="section-header">
+        <div class="page-title">
+          <p>Upload study material and manage extracted text.</p>
+        </div>
+      </div>
+
+      <div class="document-layout">
         <section class="stack">
           <div class="app-card">
             <div class="card-title">Upload</div>
@@ -112,7 +117,7 @@
           </div>
         </section>
 
-        <section class="app-card">
+        <section class="app-card document-history-panel">
           <div class="section-header">
             <div>
               <div class="card-title">Document History</div>

@@ -77,6 +77,12 @@
                 sidebar.querySelectorAll('[data-sidebar-toggle]').forEach(function (btn) {
                     syncSidebarButton(btn, collapsed);
                 });
+
+                var logo = sidebar.querySelector('.sidebar-logo');
+                if (logo) {
+                    logo.setAttribute('aria-label', collapsed ? 'Open sidebar' : 'Close sidebar');
+                    logo.setAttribute('title', collapsed ? 'Open sidebar' : 'Close sidebar');
+                }
             }
 
             window.toggleSidebar = function () {
@@ -89,12 +95,18 @@
 
             document.querySelectorAll('.sidebar').forEach(function (sidebar) {
                 var logo = sidebar.querySelector('.sidebar-logo');
-                if (logo && !logo.querySelector('[data-sidebar-toggle]')) {
-                    var btn = document.createElement('button');
-                    btn.className = 'sidebar-toggle';
-                    btn.type = 'button';
-                    btn.setAttribute('data-sidebar-toggle', '');
-                    logo.appendChild(btn);
+                if (logo) {
+                    logo.setAttribute('role', 'button');
+                    logo.setAttribute('tabindex', '0');
+                    logo.addEventListener('click', function () {
+                        window.toggleSidebar();
+                    });
+                    logo.addEventListener('keydown', function (event) {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            window.toggleSidebar();
+                        }
+                    });
                 }
 
                 if (localStorage.getItem('sidebarCollapsed') === 'true') {
@@ -102,10 +114,200 @@
                 }
 
                 sidebar.querySelectorAll('[data-sidebar-toggle]').forEach(function (btn) {
-                    btn.addEventListener('click', window.toggleSidebar);
+                    btn.addEventListener('click', function (event) {
+                        event.stopPropagation();
+                        window.toggleSidebar();
+                    });
                 });
 
                 syncSidebar(sidebar);
+            });
+
+            function escapeHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function setSidebarUser(user) {
+                document.querySelectorAll('#sidebarUsername, #usernameDash').forEach(function (el) {
+                    el.textContent = user.username;
+                });
+                document.querySelectorAll('#userAvatar').forEach(function (el) {
+                    el.textContent = user.username.substring(0, 2).toUpperCase();
+                });
+            }
+
+            function profileToast(message) {
+                var toast = document.querySelector('.toast');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.className = 'toast';
+                    document.body.appendChild(toast);
+                }
+                toast.textContent = message;
+                toast.classList.add('show');
+                setTimeout(function () {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            function ensureProfileModal() {
+                var existing = document.getElementById('profileModal');
+                if (existing) return existing;
+
+                var modal = document.createElement('div');
+                modal.className = 'modal-overlay profile-overlay';
+                modal.id = 'profileModal';
+                modal.style.display = 'none';
+                modal.innerHTML = `
+                    <div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle" onclick="event.stopPropagation()">
+                        <div class="modal-header profile-header">
+                            <div class="profile-heading">
+                                <div class="profile-avatar" id="profileAvatar">--</div>
+                                <div>
+                                    <h3 id="profileTitle">Profile</h3>
+                                    <div class="modal-meta" id="profileMeta">Manage your StudyAI account</div>
+                                </div>
+                            </div>
+                            <button class="btn-icon" type="button" data-profile-close aria-label="Close"><i class="ti ti-x"></i></button>
+                        </div>
+                        <form class="profile-form" id="profileForm">
+                            <div class="profile-alert" id="profileAlert"></div>
+                            <div class="profile-grid">
+                                <div class="form-group">
+                                    <label for="profileUsername">Username</label>
+                                    <input id="profileUsername" class="form-control" autocomplete="username" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileEmail">Email</label>
+                                    <input id="profileEmail" class="form-control" type="email" autocomplete="email" required>
+                                </div>
+                            </div>
+                            <div class="profile-password">
+                                <div class="section-header">
+                                    <div>
+                                        <div class="card-title">Password</div>
+                                        <div class="card-sub">Leave these fields empty to keep your current password.</div>
+                                    </div>
+                                </div>
+                                <div class="profile-grid">
+                                    <div class="form-group">
+                                        <label for="profileCurrentPassword">Current password</label>
+                                        <input id="profileCurrentPassword" class="form-control" type="password" autocomplete="current-password">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="profileNewPassword">New password</label>
+                                        <input id="profileNewPassword" class="form-control" type="password" autocomplete="new-password">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer profile-actions">
+                                <button class="btn" type="button" data-profile-close>Cancel</button>
+                                <button class="btn primary" type="submit" id="profileSaveBtn"><i class="ti ti-device-floppy"></i> Save Profile</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+
+                modal.addEventListener('click', closeProfileModal);
+                modal.querySelectorAll('[data-profile-close]').forEach(function (btn) {
+                    btn.addEventListener('click', closeProfileModal);
+                });
+                modal.querySelector('#profileForm').addEventListener('submit', saveProfile);
+                document.body.appendChild(modal);
+                return modal;
+            }
+
+            async function openProfileModal() {
+                var modal = ensureProfileModal();
+                var alert = modal.querySelector('#profileAlert');
+                alert.className = 'profile-alert';
+                alert.textContent = '';
+                modal.style.display = 'flex';
+
+                try {
+                    var res = await fetch('/me');
+                    var data = await res.json();
+                    if (!data.success) throw new Error(data.error || 'Could not load profile');
+                    modal.querySelector('#profileAvatar').textContent = data.username.substring(0, 2).toUpperCase();
+                    modal.querySelector('#profileMeta').textContent = data.email;
+                    modal.querySelector('#profileUsername').value = data.username;
+                    modal.querySelector('#profileEmail').value = data.email;
+                    modal.querySelector('#profileCurrentPassword').value = '';
+                    modal.querySelector('#profileNewPassword').value = '';
+                    modal.querySelector('#profileUsername').focus();
+                } catch (error) {
+                    alert.className = 'profile-alert show error';
+                    alert.textContent = error.message || 'Could not load profile';
+                }
+            }
+
+            function closeProfileModal() {
+                var modal = document.getElementById('profileModal');
+                if (modal) modal.style.display = 'none';
+            }
+
+            async function saveProfile(event) {
+                event.preventDefault();
+                var modal = ensureProfileModal();
+                var alert = modal.querySelector('#profileAlert');
+                var btn = modal.querySelector('#profileSaveBtn');
+                alert.className = 'profile-alert';
+                alert.textContent = '';
+                btn.disabled = true;
+
+                try {
+                    var res = await fetch('/me', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: modal.querySelector('#profileUsername').value.trim(),
+                            email: modal.querySelector('#profileEmail').value.trim(),
+                            current_password: modal.querySelector('#profileCurrentPassword').value,
+                            new_password: modal.querySelector('#profileNewPassword').value
+                        })
+                    });
+                    var data = await res.json();
+                    if (!data.success) {
+                        alert.className = 'profile-alert show error';
+                        alert.textContent = data.error || 'Could not save profile';
+                        return;
+                    }
+
+                    setSidebarUser(data);
+                    modal.querySelector('#profileAvatar').textContent = data.username.substring(0, 2).toUpperCase();
+                    modal.querySelector('#profileMeta').textContent = data.email;
+                    modal.querySelector('#profileCurrentPassword').value = '';
+                    modal.querySelector('#profileNewPassword').value = '';
+                    alert.className = 'profile-alert show success';
+                    alert.textContent = 'Profile updated';
+                    profileToast('Profile updated');
+                } catch (error) {
+                    alert.className = 'profile-alert show error';
+                    alert.textContent = 'Could not save profile';
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+
+            document.querySelectorAll('.user-row').forEach(function (row) {
+                row.setAttribute('role', 'button');
+                row.setAttribute('tabindex', '0');
+                row.setAttribute('title', 'Open profile');
+                row.addEventListener('click', openProfileModal);
+                row.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openProfileModal();
+                    }
+                });
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') closeProfileModal();
             });
         })();
     </script>

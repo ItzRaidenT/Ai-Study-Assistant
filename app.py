@@ -74,6 +74,7 @@ class History(db.Model):
 
     file_id = db.Column(db.Integer, nullable=True)
     filename = db.Column(db.String(255))
+    generated_content = db.Column(db.Text)
 
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
@@ -435,6 +436,57 @@ def me():
         return jsonify({'success': False, 'error': 'User not found'}), 404
     return jsonify({'success': True, 'id': user.id, 'username': user.username, 'email': user.email})
 
+@app.route('/me', methods=['PUT'])
+@login_required
+def update_me():
+    current_user = get_user_by_id(session['user_id'])
+    if not current_user:
+        session.clear()
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    email = (data.get('email') or '').strip().lower()
+    current_password = (data.get('current_password') or '').strip()
+    new_password = (data.get('new_password') or '').strip()
+
+    if not username or not email:
+        return jsonify({'success': False, 'error': 'Username and email are required'}), 400
+    if len(username) < 3:
+        return jsonify({'success': False, 'error': 'Username must be at least 3 characters'}), 400
+    if not validate_email(email):
+        return jsonify({'success': False, 'error': 'Invalid email address'}), 400
+
+    username_owner = get_user_by_username(username)
+    if username_owner and username_owner.id != current_user.id:
+        return jsonify({'success': False, 'error': 'Username already taken'}), 400
+
+    email_owner = get_user_by_email(email)
+    if email_owner and email_owner.id != current_user.id:
+        return jsonify({'success': False, 'error': 'Email already registered'}), 400
+
+    if new_password:
+        if not current_password:
+            return jsonify({'success': False, 'error': 'Current password is required to change password'}), 400
+        if not check_password_hash(current_user.password, current_password):
+            return jsonify({'success': False, 'error': 'Current password is incorrect'}), 401
+        valid, msg = validate_password(new_password)
+        if not valid:
+            return jsonify({'success': False, 'error': msg}), 400
+        current_user.password = generate_password_hash(new_password)
+
+    current_user.username = username
+    current_user.email = email
+    db.session.commit()
+
+    session['username'] = current_user.username
+    return jsonify({
+        'success': True,
+        'id': current_user.id,
+        'username': current_user.username,
+        'email': current_user.email
+    })
+
 # -------------------------AI Summarize API------------------------------------------------
 @app.route('/api/summarize', methods=['POST'])
 @login_required
@@ -555,6 +607,7 @@ Document:
                 action='flashcards',
                 file_id=int(file_id),
                 filename=filename,
+                generated_content=json.dumps(normalized),
                 user_id=session['user_id']
             )
             db.session.add(history_entry)
@@ -654,6 +707,7 @@ Document:
                 action='quiz',
                 file_id=int(file_id),
                 filename=filename,
+                generated_content=json.dumps(normalized),
                 user_id=session['user_id']
             )
             db.session.add(history_entry)
@@ -676,13 +730,85 @@ def get_history():
 
     result = []
     for h in records:
+        generated_available = bool(h.generated_content)
+        content_available = generated_available
+        if h.file_id:
+            doc = db.session.get(File, h.file_id)
+            content_available = content_available or bool(doc and doc.user_id == session['user_id'] and doc.content)
+
         result.append({
+            'id': h.id,
             'action': h.action,
+            'file_id': h.file_id,
             'filename': h.filename,
-            'time': h.created_at.strftime('%Y-%m-%d %H:%M')
+            'time': h.created_at.strftime('%Y-%m-%d %H:%M'),
+            'content_available': content_available,
+            'generated_available': generated_available
         })
 
     return jsonify({'success': True, 'history': result})
+
+@app.route('/api/history/<int:history_id>', methods=['GET'])
+@login_required
+def get_history_detail(history_id):
+    record = db.session.get(History, history_id)
+    if not record or record.user_id != session['user_id']:
+        return jsonify({'success': False, 'error': 'History item not found'}), 404
+
+    generated_items = None
+    if record.generated_content:
+        try:
+            generated_items = json.loads(record.generated_content)
+        except (TypeError, ValueError):
+            generated_items = None
+
+    if not record.file_id:
+        return jsonify({
+            'success': True,
+            'id': record.id,
+            'action': record.action,
+            'filename': record.filename,
+            'time': record.created_at.strftime('%Y-%m-%d %H:%M'),
+            'generated_items': generated_items,
+            'content': '',
+            'message': 'No document is linked to this history item.'
+        })
+
+    doc = db.session.get(File, record.file_id)
+    if not doc or doc.user_id != session['user_id']:
+        return jsonify({
+            'success': True,
+            'id': record.id,
+            'action': record.action,
+            'filename': record.filename,
+            'time': record.created_at.strftime('%Y-%m-%d %H:%M'),
+            'generated_items': generated_items,
+            'content': '',
+            'message': 'The linked document is no longer available.'
+        })
+
+    return jsonify({
+        'success': True,
+        'id': record.id,
+        'action': record.action,
+        'filename': doc.original_filename or record.filename or doc.filename,
+        'time': record.created_at.strftime('%Y-%m-%d %H:%M'),
+        'filetype': doc.filetype,
+        'word_count': doc.word_count,
+        'generated_items': generated_items,
+        'content': doc.content or ''
+    })
+
+@app.route('/api/history/<int:history_id>', methods=['DELETE'])
+@login_required
+def delete_history_item(history_id):
+    record = db.session.get(History, history_id)
+    if not record or record.user_id != session['user_id']:
+        return jsonify({'success': False, 'error': 'History item not found'}), 404
+
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'success': True})
 
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
@@ -752,6 +878,11 @@ def ensure_db_schema():
             db.session.commit()
         if 'content' not in columns:
             db.session.execute(text('ALTER TABLE file ADD COLUMN content TEXT'))
+            db.session.commit()
+    if inspector.has_table('history'):
+        columns = [col['name'] for col in inspector.get_columns('history')]
+        if 'generated_content' not in columns:
+            db.session.execute(text('ALTER TABLE history ADD COLUMN generated_content TEXT'))
             db.session.commit()
 
 if __name__ == '__main__':

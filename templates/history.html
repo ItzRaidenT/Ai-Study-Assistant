@@ -50,14 +50,19 @@
     <div class="topbar">
       <div class="page-title">
         <h1>History</h1>
-        <p>A log of your uploads, summaries, flashcards, and deletions.</p>
       </div>
       <div class="topbar-actions">
-        <button class="btn" onclick="loadHistory()"><i class="ti ti-refresh"></i> Refresh</button>
+        <button class="btn" id="historyRefreshBtn" type="button" onclick="loadHistory(this)"><i class="ti ti-refresh"></i> Refresh</button>
       </div>
     </div>
 
     <div class="content">
+      <div class="section-header">
+        <div class="page-title">
+          <p>A log of your uploads, summaries, flashcards, quizzes, and deletions.</p>
+        </div>
+      </div>
+
       <div class="stats-grid" id="statsStrip"></div>
 
       <div class="filter-bar">
@@ -65,6 +70,7 @@
         <button class="filter-btn" onclick="setFilter('upload', this)">Uploads</button>
         <button class="filter-btn" onclick="setFilter('summarize', this)">Summaries</button>
         <button class="filter-btn" onclick="setFilter('flashcards', this)">Flashcards</button>
+        <button class="filter-btn" onclick="setFilter('quiz', this)">Quizzes</button>
         <button class="filter-btn" onclick="setFilter('delete', this)">Deletions</button>
       </div>
 
@@ -78,6 +84,25 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="historyModal" style="display:none;" onclick="closeHistoryModal()">
+  <div class="modal history-detail-modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="history-modal-heading">
+        <div class="history-modal-icon"><i class="ti ti-file-description"></i></div>
+        <div>
+          <h3 id="historyModalTitle">History Detail</h3>
+          <div class="modal-meta" id="historyModalMeta"></div>
+        </div>
+      </div>
+      <button class="btn-icon" type="button" onclick="closeHistoryModal()" aria-label="Close"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="historyModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn" type="button" onclick="closeHistoryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let allHistory = [];
 let activeFilter = 'all';
@@ -86,40 +111,61 @@ const iconClass = {
   upload: 'ai-doc',
   delete: 'ai-sum',
   summarize: 'ai-sum',
-  flashcards: 'ai-flash'
+  flashcards: 'ai-flash',
+  quiz: 'ai-quiz'
 };
 const iconName = {
   upload: 'ti-upload',
   delete: 'ti-trash',
   summarize: 'ti-file-text',
-  flashcards: 'ti-cards'
+  flashcards: 'ti-cards',
+  quiz: 'ti-list-check'
 };
 const actionLabel = {
   upload: 'Upload',
   delete: 'Delete',
   summarize: 'Summary',
-  flashcards: 'Flashcards'
+  flashcards: 'Flashcards',
+  quiz: 'Quiz'
 };
 
-async function loadHistory() {
+async function loadHistory(btn) {
+  const refreshBtn = btn || document.getElementById('historyRefreshBtn');
+  if (refreshBtn) {
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = `<i class="ti ti-loader-2 spin-icon"></i> Refreshing`;
+  }
+
   try {
     const r = await fetch('/api/history');
     const d = await r.json();
-    if (!d.success) return;
+    if (!d.success) {
+      showToast(d.error || 'Could not refresh history');
+      return;
+    }
     allHistory = d.history || [];
     renderStats();
     renderTimeline();
-  } catch (e) {}
+    if (btn) showToast('History refreshed');
+  } catch (e) {
+    showToast('Could not refresh history');
+  } finally {
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = `<i class="ti ti-refresh"></i> Refresh`;
+    }
+  }
 }
 
 function renderStats() {
-  const counts = { upload: 0, summarize: 0, flashcards: 0, delete: 0 };
+  const counts = { upload: 0, summarize: 0, flashcards: 0, quiz: 0, delete: 0 };
   allHistory.forEach(h => { if (h.action in counts) counts[h.action]++; });
   document.getElementById('statsStrip').innerHTML = `
     <div class="stat-card"><div class="stat-label"><i class="ti ti-activity"></i>Total Events</div><div class="stat-value">${allHistory.length}</div></div>
     <div class="stat-card"><div class="stat-label"><i class="ti ti-upload"></i>Uploads</div><div class="stat-value">${counts.upload}</div></div>
     <div class="stat-card"><div class="stat-label"><i class="ti ti-file-text"></i>Summaries</div><div class="stat-value">${counts.summarize}</div></div>
     <div class="stat-card"><div class="stat-label"><i class="ti ti-cards"></i>Flashcards</div><div class="stat-value">${counts.flashcards}</div></div>
+    <div class="stat-card"><div class="stat-label"><i class="ti ti-list-check"></i>Quizzes</div><div class="stat-value">${counts.quiz}</div></div>
   `;
 }
 
@@ -133,14 +179,345 @@ function renderTimeline() {
   }
 
   tl.innerHTML = filtered.map(h => `
-    <div class="activity-item">
+    <div class="activity-item history-clickable" onclick="openHistoryDetail(${h.id})" tabindex="0" role="button" onkeydown="handleHistoryRowKey(event, ${h.id})">
       <div class="activity-icon ${iconClass[h.action] || 'ai-doc'}"><i class="ti ${iconName[h.action] || 'ti-file'}"></i></div>
       <div class="activity-body">
         <div class="activity-title">${escHtml(h.filename || 'Untitled document')}</div>
-        <div class="activity-meta"><span class="badge b-doc">${actionLabel[h.action] || h.action}</span><span>${escHtml(h.time || '')}</span></div>
+        <div class="activity-meta">
+          <span class="badge ${badgeClass(h.action)}">${actionLabel[h.action] || h.action}</span>
+          <span>${escHtml(h.time || '')}</span>
+          <span>${h.content_available ? 'Click to view content' : 'Content unavailable'}</span>
+        </div>
+      </div>
+      <div class="history-actions">
+        ${h.file_id && h.content_available ? `<button class="btn-icon danger" type="button" title="Delete document" onclick="deleteLinkedDocument(event, ${h.file_id})"><i class="ti ti-file-x"></i></button>` : ''}
+        <button class="btn-icon danger" type="button" title="Delete history item" onclick="deleteHistoryItem(event, ${h.id})"><i class="ti ti-trash"></i></button>
+        <i class="ti ti-chevron-right history-chevron"></i>
       </div>
     </div>
   `).join('');
+}
+
+function handleHistoryRowKey(event, id) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    openHistoryDetail(id);
+  }
+}
+
+async function deleteHistoryItem(event, id) {
+  event.stopPropagation();
+  const confirmed = await confirmDelete({
+    title: 'Delete history item?',
+    message: 'This removes this activity from your history list. The original document will stay in Documents.',
+    confirmText: 'Delete History'
+  });
+  if (!confirmed) return;
+
+  try {
+    const r = await fetch(`/api/history/${id}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (!d.success) {
+      showToast(d.error || 'Could not delete history item');
+      return;
+    }
+
+    allHistory = allHistory.filter(h => h.id !== id);
+    renderStats();
+    renderTimeline();
+    showToast('History item deleted');
+  } catch (e) {
+    showToast('Could not delete history item');
+  }
+}
+
+async function deleteLinkedDocument(event, fileId) {
+  event.stopPropagation();
+  const confirmed = await confirmDelete({
+    title: 'Delete document?',
+    message: 'This removes the document and its extracted text. Related history items will remain, but they will no longer be able to show this content.',
+    confirmText: 'Delete Document'
+  });
+  if (!confirmed) return;
+
+  try {
+    const r = await fetch(`/documents/${fileId}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (!d.success) {
+      showToast(d.error || 'Could not delete document');
+      return;
+    }
+
+    await loadHistory();
+    closeHistoryModal();
+    showToast('Document deleted');
+  } catch (e) {
+    showToast('Could not delete document');
+  }
+}
+
+async function openHistoryDetail(id) {
+  const modal = document.getElementById('historyModal');
+  const title = document.getElementById('historyModalTitle');
+  const meta = document.getElementById('historyModalMeta');
+  const body = document.getElementById('historyModalBody');
+
+  modal.style.display = 'flex';
+  title.textContent = 'Loading...';
+  meta.textContent = '';
+  body.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading content...</p></div>`;
+
+  try {
+    const r = await fetch(`/api/history/${id}`);
+    const d = await r.json();
+    if (!d.success) {
+      title.textContent = 'Unable to Load';
+      body.innerHTML = `<div class="empty-state"><i class="ti ti-alert-circle"></i><p>${escHtml(d.error || 'Could not load this history item.')}</p></div>`;
+      return;
+    }
+
+    title.textContent = d.filename || 'Untitled document';
+    meta.textContent = `${actionLabel[d.action] || d.action} · ${d.time || ''}${d.word_count ? ` · ${d.word_count} words` : ''}`;
+
+    if (d.content) {
+      body.innerHTML = `<div class="text-preview history-content">${escHtml(d.content)}</div>`;
+    } else {
+      body.innerHTML = `<div class="empty-state"><i class="ti ti-file-off"></i><p>${escHtml(d.message || 'No content is available for this item.')}</p></div>`;
+    }
+  } catch (e) {
+    title.textContent = 'Network Error';
+    body.innerHTML = `<div class="empty-state"><i class="ti ti-wifi-off"></i><p>Could not load content. Please try again.</p></div>`;
+  }
+}
+
+function closeHistoryModal() {
+  document.getElementById('historyModal').style.display = 'none';
+}
+
+function badgeClass(action) {
+  if (action === 'flashcards') return 'b-flash';
+  if (action === 'quiz') return 'b-quiz';
+  if (action === 'summarize') return 'b-sum';
+  return 'b-doc';
+}
+
+function renderHistoryMeta(item) {
+  const chips = [
+    `<span class="history-meta-chip ${badgeClass(item.action)}">${escHtml(actionLabel[item.action] || item.action || 'Activity')}</span>`,
+    item.time ? `<span class="history-meta-chip"><i class="ti ti-clock"></i>${escHtml(item.time)}</span>` : '',
+    item.filetype ? `<span class="history-meta-chip"><i class="ti ti-file"></i>${escHtml(String(item.filetype).toUpperCase())}</span>` : '',
+    item.word_count ? `<span class="history-meta-chip"><i class="ti ti-align-left"></i>${Number(item.word_count).toLocaleString()} words</span>` : ''
+  ].filter(Boolean);
+  return chips.join('');
+}
+
+function renderHistoryContent(item) {
+  const content = String(item.content || '');
+  const chars = content.length.toLocaleString();
+  const words = item.word_count || content.trim().split(/\s+/).filter(Boolean).length;
+  const preview = content.split(/\n{2,}/).find(part => part.trim()) || content.slice(0, 220);
+
+  return `
+    <div class="history-reader">
+      <div class="history-reader-summary">
+        <div>
+          <div class="card-kicker">Document Preview</div>
+          <div class="history-reader-title">${escHtml(item.filename || 'Untitled document')}</div>
+          <p>${escHtml(preview.trim().slice(0, 260))}${preview.trim().length > 260 ? '...' : ''}</p>
+        </div>
+        <div class="history-reader-stats">
+          <div><strong>${Number(words).toLocaleString()}</strong><span>Words</span></div>
+          <div><strong>${chars}</strong><span>Characters</span></div>
+        </div>
+      </div>
+      <div class="history-content-toolbar">
+        <span><i class="ti ti-file-text"></i> Extracted content</span>
+        <button class="btn" type="button" onclick="copyHistoryContent()"><i class="ti ti-copy"></i> Copy</button>
+      </div>
+      <div class="history-content-paper" id="historyContentText">${escHtml(content)}</div>
+    </div>
+  `;
+}
+
+function renderGeneratedMissing(item) {
+  return `
+    <div class="history-empty">
+      <div class="history-empty-icon"><i class="ti ti-database-off"></i></div>
+      <div>
+        <div class="card-title">${item.action === 'quiz' ? 'Quiz details unavailable' : 'Flashcards unavailable'}</div>
+        <p>This history item was created before StudyAI started saving generated ${item.action === 'quiz' ? 'quiz answers' : 'flashcards'} in history. Generate a new ${item.action === 'quiz' ? 'quiz' : 'flashcard set'} and it will reopen here.</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderHistoryFlashcards(item) {
+  window.historyFlashcardCards = item.generated_items || [];
+  window.historyFlashcardIndex = 0;
+  return `
+    <div class="history-study-shell">
+      <div class="history-study-head">
+        <div>
+          <div class="card-kicker">Interactive Flashcards</div>
+          <div class="history-reader-title">${window.historyFlashcardCards.length} cards from ${escHtml(item.filename || 'document')}</div>
+        </div>
+        <div class="segmented">
+          <button class="active" type="button" onclick="setHistoryFlashcardView('study', this)">Study</button>
+          <button type="button" onclick="setHistoryFlashcardView('list', this)">List</button>
+        </div>
+      </div>
+      <div id="historyFlashcardStudy"></div>
+      <div id="historyFlashcardList" class="history-generated-grid" style="display:none;">
+        ${window.historyFlashcardCards.map((card, i) => `
+          <div class="history-generated-card">
+            <div class="card-kicker">Card ${i + 1}</div>
+            <h4>${escHtml(card.question || '')}</h4>
+            <p>${escHtml(card.answer || '')}</p>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderHistoryFlashcardStudy() {
+  const cards = window.historyFlashcardCards || [];
+  const index = window.historyFlashcardIndex || 0;
+  const card = cards[index];
+  if (!card) return;
+
+  const dots = cards.map((_, i) => `<span class="history-study-dot ${i === index ? 'current' : i < index ? 'done' : ''}"></span>`).join('');
+  document.getElementById('historyFlashcardStudy').innerHTML = `
+    <div class="history-study-progress">
+      <span>Card ${index + 1} of ${cards.length}</span>
+      <div>${dots}</div>
+    </div>
+    <div class="history-flashcard" onclick="flipHistoryFlashcard()">
+      <div class="history-flashcard-inner" id="historyFlashcardInner">
+        <div class="history-flashcard-face">
+          <div class="card-kicker">Question</div>
+          <div class="history-flashcard-text">${escHtml(card.question || '')}</div>
+        </div>
+        <div class="history-flashcard-face history-flashcard-back">
+          <div class="card-kicker">Answer</div>
+          <div class="history-flashcard-text">${escHtml(card.answer || '')}</div>
+        </div>
+      </div>
+    </div>
+    <div class="button-row history-study-actions">
+      <button class="btn" type="button" onclick="moveHistoryFlashcard(-1)" ${index === 0 ? 'disabled' : ''}><i class="ti ti-arrow-left"></i> Prev</button>
+      <button class="btn primary" type="button" onclick="flipHistoryFlashcard()"><i class="ti ti-rotate-clockwise-2"></i> Flip</button>
+      <button class="btn" type="button" onclick="moveHistoryFlashcard(1)" ${index === cards.length - 1 ? 'disabled' : ''}>Next <i class="ti ti-arrow-right"></i></button>
+    </div>
+  `;
+}
+
+function setHistoryFlashcardView(view, button) {
+  document.getElementById('historyFlashcardStudy').style.display = view === 'study' ? 'block' : 'none';
+  document.getElementById('historyFlashcardList').style.display = view === 'list' ? 'grid' : 'none';
+  button.parentElement.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+  button.classList.add('active');
+  if (view === 'study') renderHistoryFlashcardStudy();
+}
+
+function flipHistoryFlashcard() {
+  document.getElementById('historyFlashcardInner')?.classList.toggle('flipped');
+}
+
+function moveHistoryFlashcard(delta) {
+  const cards = window.historyFlashcardCards || [];
+  window.historyFlashcardIndex = Math.max(0, Math.min(cards.length - 1, (window.historyFlashcardIndex || 0) + delta));
+  renderHistoryFlashcardStudy();
+}
+
+function renderHistoryQuiz(item) {
+  const questions = item.generated_items || [];
+  return `
+    <div class="history-study-shell">
+      <div class="history-study-head">
+        <div>
+          <div class="card-kicker">Quiz Review</div>
+          <div class="history-reader-title">${questions.length} questions from ${escHtml(item.filename || 'document')}</div>
+        </div>
+      </div>
+      <div class="history-quiz-list">
+        ${questions.map((q, i) => `
+          <div class="history-quiz-card">
+            <div class="card-kicker">Question ${i + 1}</div>
+            <h4>${escHtml(q.question || '')}</h4>
+            <div class="history-quiz-options">
+              ${(q.options || []).map(option => `
+                <div class="history-quiz-option ${option === q.answer ? 'correct' : ''}">
+                  <i class="ti ${option === q.answer ? 'ti-circle-check' : 'ti-circle'}"></i>
+                  <span>${escHtml(option)}</span>
+                </div>
+              `).join('')}
+            </div>
+            <div class="history-quiz-answer">
+              <strong>Correct answer:</strong> ${escHtml(q.answer || '')}
+              ${q.explanation ? `<p>${escHtml(q.explanation)}</p>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function copyHistoryContent() {
+  const text = document.getElementById('historyContentText')?.textContent || '';
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => showToast('Content copied'));
+}
+
+async function openHistoryDetail(id) {
+  const modal = document.getElementById('historyModal');
+  const title = document.getElementById('historyModalTitle');
+  const meta = document.getElementById('historyModalMeta');
+  const body = document.getElementById('historyModalBody');
+
+  modal.style.display = 'flex';
+  title.textContent = 'Loading...';
+  meta.textContent = '';
+  body.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading content...</p></div>`;
+
+  try {
+    const r = await fetch(`/api/history/${id}`);
+    const d = await r.json();
+    if (!d.success) {
+      title.textContent = 'Unable to Load';
+      meta.textContent = '';
+      body.innerHTML = `<div class="empty-state"><i class="ti ti-alert-circle"></i><p>${escHtml(d.error || 'Could not load this history item.')}</p></div>`;
+      return;
+    }
+
+    title.textContent = d.filename || 'Untitled document';
+    meta.innerHTML = renderHistoryMeta(d);
+
+    if (d.action === 'flashcards' && Array.isArray(d.generated_items) && d.generated_items.length) {
+      body.innerHTML = renderHistoryFlashcards(d);
+    } else if (d.action === 'quiz' && Array.isArray(d.generated_items) && d.generated_items.length) {
+      body.innerHTML = renderHistoryQuiz(d);
+    } else if ((d.action === 'flashcards' || d.action === 'quiz') && !d.generated_items) {
+      body.innerHTML = renderGeneratedMissing(d);
+    } else if (d.content) {
+      body.innerHTML = renderHistoryContent(d);
+    } else {
+      body.innerHTML = `
+        <div class="history-empty">
+          <div class="history-empty-icon"><i class="ti ti-file-off"></i></div>
+          <div>
+            <div class="card-title">Content unavailable</div>
+            <p>${escHtml(d.message || 'No content is available for this item.')}</p>
+          </div>
+        </div>
+      `;
+    }
+  } catch (e) {
+    title.textContent = 'Network Error';
+    meta.textContent = '';
+    body.innerHTML = `<div class="empty-state"><i class="ti ti-wifi-off"></i><p>Could not load content. Please try again.</p></div>`;
+  }
 }
 
 function setFilter(f, btn) {
@@ -151,8 +528,60 @@ function setFilter(f, btn) {
 }
 
 function escHtml(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+function confirmDelete({ title, message, confirmText = 'Delete' }) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay confirm-overlay';
+    overlay.innerHTML = `
+      <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" onclick="event.stopPropagation()">
+        <div class="confirm-icon"><i class="ti ti-alert-triangle"></i></div>
+        <div class="confirm-copy">
+          <h3 id="confirmTitle">${escHtml(title)}</h3>
+          <p>${escHtml(message)}</p>
+        </div>
+        <div class="modal-footer confirm-actions">
+          <button class="btn" type="button" data-confirm-cancel>Cancel</button>
+          <button class="btn danger confirm-danger" type="button" data-confirm-ok><i class="ti ti-trash"></i> ${escHtml(confirmText)}</button>
+        </div>
+      </div>
+    `;
+
+    const close = value => {
+      overlay.remove();
+      document.removeEventListener('keydown', handleKey);
+      resolve(value);
+    };
+    const handleKey = event => {
+      if (event.key === 'Escape') close(false);
+    };
+
+    overlay.addEventListener('click', () => close(false));
+    overlay.querySelector('[data-confirm-cancel]').addEventListener('click', () => close(false));
+    overlay.querySelector('[data-confirm-ok]').addEventListener('click', () => close(true));
+    document.addEventListener('keydown', handleKey);
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-confirm-cancel]').focus();
+  });
+}
+
+function showToast(msg) {
+  let toast = document.querySelector('.toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeHistoryModal();
+});
 
 async function loadMe() {
   try {
