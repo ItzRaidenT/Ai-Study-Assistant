@@ -421,11 +421,10 @@ def forgot_password_api():
 
 
 
-@app.route('/logout', methods = ['POST'])
+@app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('user_id', None)
-    session.pop('username', None)
-    return redirect(url_for('login'))
+    session.clear()
+    return redirect(url_for('landing'))
 
 @app.route('/me', methods = ['GET'])
 @login_required
@@ -812,22 +811,26 @@ def delete_history_item(history_id):
 
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
-def index():
-    if 'user_id' not in session:
-        return render_template('login.html')
-    return render_template('Index.html')
+def landing():
+    return render_template('start.html')
+
+@app.route('/home')
+@login_required
+def home():
+    return render_template('index.html')
 
 @app.route('/login')
 def login():
     if 'user_id' in session:
-        return redirect(url_for('index'))
+        return redirect(url_for('home'))  
+
     return render_template('login.html')
 
 @app.route('/register')
 def register_page():
     if 'user_id' in session:
-        return redirect(url_for('index'))
-    return render_template('register.html') 
+        return redirect(url_for('home'))  
+    return render_template('register.html')
 
 @app.route('/forgot-password')
 def forgot_password_page():
