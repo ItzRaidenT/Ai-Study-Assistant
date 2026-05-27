@@ -421,11 +421,10 @@ def forgot_password_api():
 
 
 
-@app.route('/logout', methods = ['POST'])
+@app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('user_id', None)
-    session.pop('username', None)
-    return redirect(url_for('login'))
+    session.clear()
+    return redirect(url_for('landing'))
 
 @app.route('/me', methods = ['GET'])
 @login_required
@@ -516,9 +515,9 @@ def ai_summarize():
     try:
         summary = call_groq_agent(f"""Please summarize the following document clearly and concisely.
 Structure your summary with:
-1. **Overview** (2-3 sentences on the main topic)
-2. **Key Points** (bullet list of 4-6 main ideas)
-3. **Conclusion** (1-2 sentences on the overall takeaway)
+1. *Overview* (2-3 sentences on the main topic)
+2. *Key Points* (bullet list of 4-6 main ideas)
+3. *Conclusion* (1-2 sentences on the overall takeaway)
 
 Document:
 {text}""", temperature=0.2, max_completion_tokens=1400)
@@ -812,22 +811,26 @@ def delete_history_item(history_id):
 
 #---------------------Page route-------------------------------------------------------------
 @app.route('/')
-def index():
-    if 'user_id' not in session:
-        return render_template('login.html')
+def landing():
+    return render_template('start.html')
+
+@app.route('/home')
+@login_required
+def home():
     return render_template('Index.html')
 
 @app.route('/login')
 def login():
     if 'user_id' in session:
-        return redirect(url_for('index'))
+        return redirect(url_for('home'))  
+
     return render_template('login.html')
 
 @app.route('/register')
 def register_page():
     if 'user_id' in session:
-        return redirect(url_for('index'))
-    return render_template('register.html') 
+        return redirect(url_for('home'))  
+    return render_template('register.html')
 
 @app.route('/forgot-password')
 def forgot_password_page():
@@ -890,4 +893,3 @@ if __name__ == '__main__':
         db.create_all()
         ensure_db_schema()
     app.run(debug=True)
-    

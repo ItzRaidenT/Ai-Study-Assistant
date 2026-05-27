@@ -97,7 +97,7 @@ async function handleLogin() {
 
     if (data.success) {
       showAlert('Login successful. Redirecting...', 'success');
-      setTimeout(() => window.location.href = '/', 800);
+      setTimeout(() => window.location.href = '/home', 800);
     } else {
       showAlert(data.error, 'error');
       btn.disabled = false;

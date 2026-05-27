@@ -1,4 +1,3 @@
-/* 全局重置 & 盒模型 */
 *, *::before, *::after { 
   box-sizing: border-box; 
   margin: 0; 
@@ -108,7 +107,6 @@ body {
   min-width: 72px;
 }
 
-/* hide content when sidebar is collapsed */
 .sidebar.collapsed .nav,
 .sidebar.collapsed .sidebar-footer,
 .sidebar.collapsed .logo-text,
@@ -116,19 +114,16 @@ body {
   display: none;
 }
 
-/* logo alignment */
 .sidebar.collapsed .sidebar-logo {
   justify-content: center;
   padding: 20px 0;
   border-bottom: none;
 }
 
-/* logo icon alignment */
 .sidebar.collapsed .logo-icon {
   margin: 0;
 }
 
-/* menu button */
 .sidebar.collapsed .closesidebar {
   position: absolute;
   top: 70px;
@@ -164,7 +159,6 @@ body {
   color: #fff;
 }
 
-/* 修复：恢复logo-icon的蓝色背景 */
 .logo-icon {
   width: 30px; height: 30px;
   border-radius: 8px;
@@ -177,7 +171,6 @@ body {
 [data-theme="dark"] .logo-icon { background: var(--accent-primary-soft); }
 [data-theme="dark"] .logo-icon i { color: var(--accent-primary); }
 
-/* 侧边栏切换按钮 */
 .closesidebar {
   position: absolute;
   right: 16px; top: 20px; 
@@ -195,7 +188,6 @@ body {
 }
 
 
-/* 导航菜单 */
 .nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
 .nav-section {
   font-size: 10px; font-weight: 600;
@@ -228,7 +220,6 @@ body {
   border-radius: 10px;
 }
 
-/* 侧边栏底部 */
 .sidebar-footer {
   padding: 10px 8px;
   border-top: 0.5px solid var(--border-tertiary);
