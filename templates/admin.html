@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block head %}
+<title>Admin Console - StudyAI</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="dash admin-shell">
+  <aside class="sidebar admin-sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-shield-lock"></i></div>
+      <div>
+        <div class="logo-text">StudyAI Admin</div>
+        <div class="logo-sub">Administration</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">Console</div>
+      <button class="nav-item active admin-nav-item" type="button" data-admin-panel="overview"><i class="ti ti-layout-dashboard"></i> Overview</button>
+      <button class="nav-item admin-nav-item" type="button" data-admin-panel="users"><i class="ti ti-users"></i> Users</button>
+      <button class="nav-item admin-nav-item" type="button" data-admin-panel="documents"><i class="ti ti-files"></i> Documents</button>
+      <button class="nav-item admin-nav-item" type="button" data-admin-panel="activity"><i class="ti ti-list-details"></i> Audit Activity</button>
+
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="avatar" id="userAvatar">AD</div>
+        <div>
+          <div class="user-name" id="sidebarUsername">Administrator</div>
+          <div class="user-plan">Administrator</div>
+        </div>
+      </div>
+      <button class="theme-btn" type="button" data-theme-toggle><i class="ti ti-moon"></i></button>
+      <form method="POST" action="/logout" style="width:100%;">
+        <button type="submit" class="btn danger btn-full"><i class="ti ti-logout"></i> Sign Out</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar admin-topbar">
+      <div>
+        <div class="admin-eyebrow">Administration</div>
+        <h1 class="admin-topbar-title" id="adminPageTitle">Overview</h1>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" type="button" onclick="loadAdminData()"><i class="ti ti-refresh"></i> Refresh</button>
+        <button class="btn primary" type="button" onclick="showAdminPanel('documents')"><i class="ti ti-file-search"></i> Review Documents</button>
+      </div>
+    </header>
+
+    <div class="content admin-content">
+      <section class="admin-panel visible" id="admin-panel-overview">
+        <div class="admin-page-header">
+          <div>
+            <h2>System Overview</h2>
+            <p>Read-only visibility into client accounts, documents, and study activity.</p>
+          </div>
+          <span class="admin-access-badge"><i class="ti ti-lock"></i> Read-only access</span>
+        </div>
+
+        <div class="admin-metric-grid" id="adminMetrics">
+          <div class="admin-metric skeleton"></div>
+          <div class="admin-metric skeleton"></div>
+          <div class="admin-metric skeleton"></div>
+          <div class="admin-metric skeleton"></div>
+        </div>
+
+        <div class="admin-dashboard-grid">
+          <section class="admin-card">
+            <div class="admin-card-head">
+              <div>
+                <h3>Recent Activity</h3>
+                <p>Latest actions across client accounts.</p>
+              </div>
+              <button class="section-link admin-link-btn" type="button" onclick="showAdminPanel('activity')">View all</button>
+            </div>
+            <div class="admin-recent-list" id="adminRecentActivity"></div>
+          </section>
+
+          <section class="admin-card">
+            <div class="admin-card-head">
+              <div>
+                <h3>Accounts</h3>
+                <p>Users with the most recorded documents.</p>
+              </div>
+              <button class="section-link admin-link-btn" type="button" onclick="showAdminPanel('users')">View all</button>
+            </div>
+            <div class="admin-recent-list" id="adminTopUsers"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="admin-panel-users">
+        <div class="admin-page-header">
+          <div>
+            <h2>User Accounts</h2>
+            <p>Registered clients and administrators in the system.</p>
+          </div>
+          <label class="admin-search"><i class="ti ti-search"></i><input id="userSearch" type="search" placeholder="Search users" oninput="renderUsers()"></label>
+        </div>
+        <div class="admin-table-card">
+          <table class="admin-table">
+            <thead><tr><th>User</th><th>Role</th><th>Documents</th><th>Activity</th><th>Status</th></tr></thead>
+            <tbody id="adminUsersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="admin-panel-documents">
+        <div class="admin-page-header">
+          <div>
+            <h2>Documents</h2>
+            <p>Uploaded documents from all clients. Content access is read-only.</p>
+          </div>
+          <label class="admin-search"><i class="ti ti-search"></i><input id="documentSearch" type="search" placeholder="Search documents" oninput="renderDocuments()"></label>
+        </div>
+        <div class="admin-table-card">
+          <table class="admin-table">
+            <thead><tr><th>Document</th><th>Owner</th><th>Type</th><th>Words</th><th>Uploaded</th><th></th></tr></thead>
+            <tbody id="adminDocumentsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="admin-panel-activity">
+        <div class="admin-page-header">
+          <div>
+            <h2>Audit Activity</h2>
+            <p>Document and AI activity recorded across all accounts.</p>
+          </div>
+          <label class="admin-search"><i class="ti ti-search"></i><input id="activitySearch" type="search" placeholder="Search activity" oninput="renderActivity()"></label>
+        </div>
+        <div class="admin-table-card">
+          <table class="admin-table">
+            <thead><tr><th>Action</th><th>Document</th><th>Owner</th><th>Recorded At</th><th>Availability</th></tr></thead>
+            <tbody id="adminActivityBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="adminDocumentModal" style="display:none;" onclick="closeAdminDocument()">
+  <div class="modal history-detail-modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="history-modal-heading">
+        <div class="history-modal-icon"><i class="ti ti-file-text"></i></div>
+        <div>
+          <h3 id="adminDocumentTitle">Document</h3>
+          <div class="modal-meta" id="adminDocumentMeta"></div>
+        </div>
+      </div>
+      <button class="btn-icon" type="button" onclick="closeAdminDocument()" aria-label="Close"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="history-content-paper" id="adminDocumentContent"></div>
+    </div>
+    <div class="modal-footer">
+      <span class="admin-access-badge"><i class="ti ti-lock"></i> Read-only</span>
+      <button class="btn primary" type="button" onclick="closeAdminDocument()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let adminOverview = null;
+let adminDocuments = [];
+let adminHistory = [];
+
+const actionLabels = {
+  upload: 'Upload',
+  delete: 'Delete',
+  summarize: 'Summary',
+  flashcards: 'Flashcards',
+  quiz: 'Quiz'
+};
+
+function escapeAdminHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function roleBadge(role) {
+  return `<span class="admin-role ${role === 'admin' ? 'role-admin' : 'role-client'}">${escapeAdminHtml(role)}</span>`;
+}
+
+function actionBadge(action) {
+  return `<span class="admin-action action-${escapeAdminHtml(action)}">${escapeAdminHtml(actionLabels[action] || action)}</span>`;
+}
+
+function showAdminPanel(name) {
+  document.querySelectorAll('.admin-panel').forEach(panel => panel.classList.remove('visible'));
+  document.querySelectorAll('[data-admin-panel]').forEach(item => {
+    item.classList.toggle('active', item.dataset.adminPanel === name);
+  });
+  document.getElementById(`admin-panel-${name}`).classList.add('visible');
+  document.getElementById('adminPageTitle').textContent = {
+    overview: 'Overview',
+    users: 'Users',
+    documents: 'Documents',
+    activity: 'Audit Activity'
+  }[name];
+}
+
+document.querySelectorAll('[data-admin-panel]').forEach(item => {
+  item.addEventListener('click', () => showAdminPanel(item.dataset.adminPanel));
+});
+
+async function loadAdminData() {
+  try {
+    const [profileResponse, overviewResponse, documentsResponse, activityResponse] = await Promise.all([
+      fetch('/me'),
+      fetch('/api/admin/overview'),
+      fetch('/documents'),
+      fetch('/api/history')
+    ]);
+    const profile = await profileResponse.json();
+    adminOverview = await overviewResponse.json();
+    const documents = await documentsResponse.json();
+    const activity = await activityResponse.json();
+
+    if (!adminOverview.success || !documents.success || !activity.success) {
+      throw new Error('Unable to load administrator data');
+    }
+
+    adminDocuments = documents.documents || [];
+    adminHistory = activity.history || [];
+    if (profile.success) {
+      document.getElementById('sidebarUsername').textContent = profile.username;
+      document.getElementById('userAvatar').textContent = profile.username.substring(0, 2).toUpperCase();
+    }
+    renderOverview();
+    renderUsers();
+    renderDocuments();
+    renderActivity();
+  } catch (error) {
+    document.getElementById('adminMetrics').innerHTML = '<div class="admin-empty">Could not load administrator data.</div>';
+  }
+}
+
+function renderOverview() {
+  const admins = adminOverview.users.filter(account => account.role === 'admin').length;
+  document.getElementById('adminMetrics').innerHTML = `
+    <div class="admin-metric"><div class="admin-metric-label">Total Users</div><div class="admin-metric-value">${adminOverview.user_count}</div><div class="admin-metric-note">${admins} administrators</div></div>
+    <div class="admin-metric"><div class="admin-metric-label">Documents</div><div class="admin-metric-value">${adminOverview.document_count}</div><div class="admin-metric-note">Accessible read-only</div></div>
+    <div class="admin-metric"><div class="admin-metric-label">Activity Events</div><div class="admin-metric-value">${adminOverview.history_count}</div><div class="admin-metric-note">Across all accounts</div></div>
+    <div class="admin-metric"><div class="admin-metric-label">Client Accounts</div><div class="admin-metric-value">${adminOverview.user_count - admins}</div><div class="admin-metric-note">Active registry</div></div>
+  `;
+
+  const recent = adminHistory.slice(0, 6);
+  document.getElementById('adminRecentActivity').innerHTML = recent.length ? recent.map(item => `
+    <div class="admin-recent-item">
+      ${actionBadge(item.action)}
+      <div><strong>${escapeAdminHtml(item.filename || 'Untitled document')}</strong><span>${escapeAdminHtml(item.owner_username || 'Unknown')} | ${escapeAdminHtml(item.time)}</span></div>
+    </div>`).join('') : '<div class="admin-empty">No activity recorded.</div>';
+
+  const rankedUsers = [...adminOverview.users].sort((a, b) => b.document_count - a.document_count).slice(0, 6);
+  document.getElementById('adminTopUsers').innerHTML = rankedUsers.length ? rankedUsers.map(account => `
+    <div class="admin-recent-item">
+      <div class="admin-user-avatar">${escapeAdminHtml(account.username.substring(0, 2).toUpperCase())}</div>
+      <div><strong>${escapeAdminHtml(account.username)}</strong><span>${account.document_count} documents | ${account.history_count} events</span></div>
+      ${roleBadge(account.role)}
+    </div>`).join('') : '<div class="admin-empty">No accounts found.</div>';
+}
+
+function renderUsers() {
+  if (!adminOverview) return;
+  const query = document.getElementById('userSearch').value.trim().toLowerCase();
+  const users = adminOverview.users.filter(account =>
+    !query || account.username.toLowerCase().includes(query) || account.email.toLowerCase().includes(query)
+  );
+  document.getElementById('adminUsersBody').innerHTML = users.length ? users.map(account => `
+    <tr>
+      <td><div class="admin-table-primary">${escapeAdminHtml(account.username)}</div><div class="admin-table-secondary">${escapeAdminHtml(account.email)}</div></td>
+      <td>${roleBadge(account.role)}</td>
+      <td>${account.document_count}</td>
+      <td>${account.history_count} events</td>
+      <td><span class="admin-status">Active</span></td>
+    </tr>`).join('') : '<tr><td colspan="5" class="admin-empty">No users match this search.</td></tr>';
+}
+
+function renderDocuments() {
+  const query = document.getElementById('documentSearch').value.trim().toLowerCase();
+  const documents = adminDocuments.filter(doc =>
+    !query || doc.filename.toLowerCase().includes(query) || (doc.owner_username || '').toLowerCase().includes(query)
+  );
+  document.getElementById('adminDocumentsBody').innerHTML = documents.length ? documents.map(doc => `
+    <tr>
+      <td><div class="admin-table-primary">${escapeAdminHtml(doc.filename)}</div></td>
+      <td>${escapeAdminHtml(doc.owner_username || '-')}</td>
+      <td>${escapeAdminHtml((doc.filetype || '').toUpperCase())}</td>
+      <td>${Number(doc.word_count || 0).toLocaleString()}</td>
+      <td>${escapeAdminHtml(doc.uploaded_at)}</td>
+      <td><button class="btn admin-view-btn" type="button" onclick="openAdminDocument(${doc.id})"><i class="ti ti-eye"></i> View</button></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="admin-empty">No documents match this search.</td></tr>';
+}
+
+function renderActivity() {
+  const query = document.getElementById('activitySearch').value.trim().toLowerCase();
+  const history = adminHistory.filter(item =>
+    !query || (item.filename || '').toLowerCase().includes(query) || (item.owner_username || '').toLowerCase().includes(query) || (item.action || '').toLowerCase().includes(query)
+  );
+  document.getElementById('adminActivityBody').innerHTML = history.length ? history.map(item => `
+    <tr>
+      <td>${actionBadge(item.action)}</td>
+      <td><div class="admin-table-primary">${escapeAdminHtml(item.filename || 'Untitled document')}</div></td>
+      <td>${escapeAdminHtml(item.owner_username || '-')}</td>
+      <td>${escapeAdminHtml(item.time)}</td>
+      <td><span class="admin-status ${item.content_available ? '' : 'muted'}">${item.content_available ? 'Available' : 'Unavailable'}</span></td>
+    </tr>`).join('') : '<tr><td colspan="5" class="admin-empty">No activity matches this search.</td></tr>';
+}
+
+async function openAdminDocument(id) {
+  const modal = document.getElementById('adminDocumentModal');
+  modal.style.display = 'flex';
+  document.getElementById('adminDocumentTitle').textContent = 'Loading...';
+  document.getElementById('adminDocumentMeta').textContent = '';
+  document.getElementById('adminDocumentContent').textContent = 'Loading document content...';
+  try {
+    const response = await fetch(`/documents/${id}`);
+    const doc = await response.json();
+    if (!doc.success) throw new Error(doc.error || 'Unable to load document');
+    document.getElementById('adminDocumentTitle').textContent = doc.filename;
+    document.getElementById('adminDocumentMeta').textContent = `Owner: ${doc.owner_username || '-'} | ${Number(doc.word_count || 0).toLocaleString()} words | ${doc.uploaded_at}`;
+    document.getElementById('adminDocumentContent').textContent = doc.content || 'No extracted content is available.';
+  } catch (error) {
+    document.getElementById('adminDocumentTitle').textContent = 'Unable to Load';
+    document.getElementById('adminDocumentContent').textContent = error.message;
+  }
+}
+
+function closeAdminDocument() {
+  document.getElementById('adminDocumentModal').style.display = 'none';
+}
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeAdminDocument();
+});
+
+loadAdminData();
+</script>
+{% endblock %}

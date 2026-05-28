@@ -101,7 +101,7 @@
 <script>
 async function loadDocs() {
   try {
-    const r = await fetch('/documents');
+    const r = await fetch('/documents?scope=own');
     const d = await r.json();
     if (!d.success) return;
 
@@ -167,6 +167,7 @@ async function loadMe() {
     if (!d.success) return;
     document.getElementById('sidebarUsername').textContent = d.username;
     document.getElementById('userAvatar').textContent = d.username.substring(0, 2).toUpperCase();
+    document.querySelector('.user-plan').textContent = d.role === 'admin' ? 'Administrator' : 'Active session';
   } catch (e) {}
 }
 

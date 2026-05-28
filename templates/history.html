@@ -27,6 +27,7 @@
       <a href="/uploaddocument" class="nav-item"><i class="ti ti-folder"></i> Documents</a>
       <a href="/history" class="nav-item active"><i class="ti ti-history"></i> History</a>
       <a href="/home" class="nav-item"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+      <a href="/admin" class="nav-item" id="adminConsoleLink" style="display:none;"><i class="ti ti-shield-lock"></i> Admin Console</a>
     </nav>
 
     <div class="sidebar-footer">
@@ -59,7 +60,7 @@
     <div class="content">
       <div class="section-header">
         <div class="page-title">
-          <p>A log of your uploads, summaries, flashcards, quizzes, and deletions.</p>
+          <p id="historyScope">A log of your uploads, summaries, flashcards, quizzes, and deletions.</p>
         </div>
       </div>
 
@@ -144,6 +145,9 @@ async function loadHistory(btn) {
       return;
     }
     allHistory = d.history || [];
+    if (d.admin_view) {
+      document.getElementById('historyScope').textContent = 'Admin view: activity from all client accounts.';
+    }
     renderStats();
     renderTimeline();
     if (btn) showToast('History refreshed');
@@ -186,12 +190,13 @@ function renderTimeline() {
         <div class="activity-meta">
           <span class="badge ${badgeClass(h.action)}">${actionLabel[h.action] || h.action}</span>
           <span>${escHtml(h.time || '')}</span>
+          ${h.owner_username ? `<span>Owner: ${escHtml(h.owner_username)}</span>` : ''}
           <span>${h.content_available ? 'Click to view content' : 'Content unavailable'}</span>
         </div>
       </div>
       <div class="history-actions">
-        ${h.file_id && h.content_available ? `<button class="btn-icon danger" type="button" title="Delete document" onclick="deleteLinkedDocument(event, ${h.file_id})"><i class="ti ti-file-x"></i></button>` : ''}
-        <button class="btn-icon danger" type="button" title="Delete history item" onclick="deleteHistoryItem(event, ${h.id})"><i class="ti ti-trash"></i></button>
+        ${!h.read_only && h.file_id && h.content_available ? `<button class="btn-icon danger" type="button" title="Delete document" onclick="deleteLinkedDocument(event, ${h.file_id})"><i class="ti ti-file-x"></i></button>` : ''}
+        ${h.read_only ? '' : `<button class="btn-icon danger" type="button" title="Delete history item" onclick="deleteHistoryItem(event, ${h.id})"><i class="ti ti-trash"></i></button>`}
         <i class="ti ti-chevron-right history-chevron"></i>
       </div>
     </div>
@@ -306,7 +311,8 @@ function renderHistoryMeta(item) {
     `<span class="history-meta-chip ${badgeClass(item.action)}">${escHtml(actionLabel[item.action] || item.action || 'Activity')}</span>`,
     item.time ? `<span class="history-meta-chip"><i class="ti ti-clock"></i>${escHtml(item.time)}</span>` : '',
     item.filetype ? `<span class="history-meta-chip"><i class="ti ti-file"></i>${escHtml(String(item.filetype).toUpperCase())}</span>` : '',
-    item.word_count ? `<span class="history-meta-chip"><i class="ti ti-align-left"></i>${Number(item.word_count).toLocaleString()} words</span>` : ''
+    item.word_count ? `<span class="history-meta-chip"><i class="ti ti-align-left"></i>${Number(item.word_count).toLocaleString()} words</span>` : '',
+    item.owner_username ? `<span class="history-meta-chip"><i class="ti ti-user"></i>${escHtml(item.owner_username)}</span>` : ''
   ].filter(Boolean);
   return chips.join('');
 }
@@ -590,6 +596,8 @@ async function loadMe() {
     if (!d.success) return;
     document.getElementById('sidebarUsername').textContent = d.username;
     document.getElementById('userAvatar').textContent = d.username.substring(0, 2).toUpperCase();
+    document.querySelector('.user-plan').textContent = d.role === 'admin' ? 'Administrator' : 'Active session';
+    if (d.role === 'admin') document.getElementById('adminConsoleLink').style.display = 'flex';
   } catch (e) {}
 }
 

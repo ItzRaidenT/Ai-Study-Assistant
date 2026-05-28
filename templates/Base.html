@@ -138,6 +138,9 @@
                 document.querySelectorAll('#userAvatar').forEach(function (el) {
                     el.textContent = user.username.substring(0, 2).toUpperCase();
                 });
+                document.querySelectorAll('.user-plan').forEach(function (el) {
+                    el.textContent = user.role === 'admin' ? 'Administrator' : 'Active session';
+                });
             }
 
             function profileToast(message) {

@@ -32,7 +32,7 @@ def load_local_env(path='.env'):
 load_local_env()
 
 app = Flask(__name__, static_folder='Static', template_folder='templates')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["UPLOAD_FOLDER"] = "uploads/"
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB
@@ -40,6 +40,8 @@ app.secret_key = 'Itz_1001_Mid'  # Add secret key for sessions
 db = SQLAlchemy(app)
 
 ALLOWED_EXTENSIONS = {'pdf', 'txt'}
+ROLE_CLIENT = 'client'
+ROLE_ADMIN = 'admin'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 class user(db.Model):
@@ -47,6 +49,7 @@ class user(db.Model):
     username = db.Column(db.String(80), nullable = False, unique = True)
     email = db.Column(db.String(80), nullable = False, unique = True)
     password = db.Column(db.String(225), nullable = False)
+    role = db.Column(db.String(20), nullable=False, default=ROLE_CLIENT)
 
     def __repr__(self) -> str:
         return f"User {self.id} {self.username}"
@@ -91,10 +94,56 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def admin_required(f):
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if not current_user_is_admin():
+            if request.is_json or request.path.startswith('/api/'):
+                return jsonify({'success': False, 'error': 'Administrator access required'}), 403
+            return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return decorated
+
+def configured_admin_emails():
+    configured = os.getenv('ADMIN_EMAILS', '')
+    return {
+        email.strip().lower()
+        for email in configured.split(',')
+        if email.strip()
+    }
+
+def promote_configured_admin(user_obj):
+    if user_obj and user_obj.email.lower() in configured_admin_emails() and user_obj.role != ROLE_ADMIN:
+        user_obj.role = ROLE_ADMIN
+        db.session.commit()
+    return user_obj
+
+def current_user():
+    return get_user_by_id(session['user_id']) if 'user_id' in session else None
+
+def current_user_is_admin():
+    user_obj = promote_configured_admin(current_user())
+    return bool(user_obj and user_obj.role == ROLE_ADMIN)
+
+def can_view_owner_data(owner_id):
+    return owner_id == session.get('user_id') or current_user_is_admin()
+
+def owner_details(owner_id):
+    owner = db.session.get(user, owner_id)
+    if not owner:
+        return {'owner_id': owner_id, 'owner_username': 'Unknown user', 'owner_email': ''}
+    return {
+        'owner_id': owner.id,
+        'owner_username': owner.username,
+        'owner_email': owner.email
+    }
+
 def create_user(username, email, password):
     try:
         hashed_password = generate_password_hash(password)
-        new_user = user(username=username, email=email, password=hashed_password)
+        role = ROLE_ADMIN if email.lower() in configured_admin_emails() else ROLE_CLIENT
+        new_user = user(username=username, email=email, password=hashed_password, role=role)
         db.session.add(new_user)
         db.session.commit()
         return new_user.id, None
@@ -320,40 +369,52 @@ def delete_file(file_id):
 @app.route('/documents', methods=['GET'])
 @login_required
 def list_documents():
-    documents = File.query.filter_by(user_id=session['user_id']) \
+    query = File.query
+    is_admin_view = current_user_is_admin() and request.args.get('scope') != 'own'
+    if not is_admin_view:
+        query = query.filter_by(user_id=session['user_id'])
+    documents = query \
         .order_by(File.uploaded_at.desc()) \
         .all()
 
     docs = []
     for doc in documents:
-        docs.append({
+        doc_data = {
             'id': doc.id,
             'filename': doc.original_filename or doc.filename,
             'stored_filename': doc.filename,
             'filetype': doc.filetype,
             'word_count': doc.word_count,
             'preview': get_preview(doc.content or ''),
-            'uploaded_at': doc.uploaded_at.strftime('%Y-%m-%d %H:%M')
-        })
+            'uploaded_at': doc.uploaded_at.strftime('%Y-%m-%d %H:%M'),
+            'read_only': doc.user_id != session['user_id']
+        }
+        if is_admin_view:
+            doc_data.update(owner_details(doc.user_id))
+        docs.append(doc_data)
 
-    return jsonify({'success': True, 'documents': docs})
+    return jsonify({'success': True, 'documents': docs, 'admin_view': is_admin_view})
 
 @app.route('/documents/<int:file_id>', methods=['GET'])
 @login_required
 def get_document(file_id):
     doc = db.session.get(File, file_id)
-    if not doc or doc.user_id != session['user_id']:
+    if not doc or not can_view_owner_data(doc.user_id):
         return jsonify({'success': False, 'error': 'Document not found'}), 404
 
-    return jsonify({
+    result = {
         'success': True,
         'id': doc.id,
         'filename': doc.original_filename or doc.filename,
         'filetype': doc.filetype,
         'word_count': doc.word_count,
         'content': doc.content or '',
-        'uploaded_at': doc.uploaded_at.strftime('%Y-%m-%d %H:%M')
-    })
+        'uploaded_at': doc.uploaded_at.strftime('%Y-%m-%d %H:%M'),
+        'read_only': doc.user_id != session['user_id']
+    }
+    if current_user_is_admin():
+        result.update(owner_details(doc.user_id))
+    return jsonify(result)
 
 #--------------------------User authentication system API------------------------------------------------
 @app.route('/api/register', methods = ['POST'])
@@ -382,7 +443,8 @@ def register():
 
     session['user_id']  = user_id
     session['username'] = username
-    return jsonify({'success': True, 'username': username}), 201
+    registered_user = get_user_by_id(user_id)
+    return jsonify({'success': True, 'username': username, 'role': registered_user.role}), 201
 
 @app.route('/api/login', methods = ['POST'])
 def login_user():
@@ -398,8 +460,9 @@ def login_user():
         return jsonify({'success': False, 'error': 'Invalid email/username or password'}), 401
 
     session['user_id']  = user_obj.id
+    promote_configured_admin(user_obj)
     session['username'] = user_obj.username
-    return jsonify({'success': True, 'username': user_obj.username})
+    return jsonify({'success': True, 'username': user_obj.username, 'role': user_obj.role})
 
 @app.route('/api/forgot_password', methods = ['POST'])
 def forgot_password_api():
@@ -429,11 +492,17 @@ def logout():
 @app.route('/me', methods = ['GET'])
 @login_required
 def me():
-    user = get_user_by_id(session['user_id'])
-    if not user:
+    user_obj = promote_configured_admin(get_user_by_id(session['user_id']))
+    if not user_obj:
         session.clear()
         return jsonify({'success': False, 'error': 'User not found'}), 404
-    return jsonify({'success': True, 'id': user.id, 'username': user.username, 'email': user.email})
+    return jsonify({
+        'success': True,
+        'id': user_obj.id,
+        'username': user_obj.username,
+        'email': user_obj.email,
+        'role': user_obj.role
+    })
 
 @app.route('/me', methods=['PUT'])
 @login_required
@@ -483,7 +552,31 @@ def update_me():
         'success': True,
         'id': current_user.id,
         'username': current_user.username,
-        'email': current_user.email
+        'email': current_user.email,
+        'role': current_user.role
+    })
+
+@app.route('/api/admin/overview', methods=['GET'])
+@admin_required
+def admin_overview():
+    accounts = user.query.order_by(user.username.asc()).all()
+    users = []
+    for account in accounts:
+        users.append({
+            'id': account.id,
+            'username': account.username,
+            'email': account.email,
+            'role': account.role,
+            'document_count': File.query.filter_by(user_id=account.id).count(),
+            'history_count': History.query.filter_by(user_id=account.id).count()
+        })
+
+    return jsonify({
+        'success': True,
+        'users': users,
+        'user_count': len(users),
+        'document_count': File.query.count(),
+        'history_count': History.query.count()
     })
 
 # -------------------------AI Summarize API------------------------------------------------
@@ -723,7 +816,11 @@ Document:
 @app.route('/api/history', methods=['GET'])
 @login_required
 def get_history():
-    records = History.query.filter_by(user_id=session['user_id']) \
+    query = History.query
+    is_admin_view = current_user_is_admin()
+    if not is_admin_view:
+        query = query.filter_by(user_id=session['user_id'])
+    records = query \
         .order_by(History.created_at.desc()) \
         .all()
 
@@ -733,26 +830,36 @@ def get_history():
         content_available = generated_available
         if h.file_id:
             doc = db.session.get(File, h.file_id)
-            content_available = content_available or bool(doc and doc.user_id == session['user_id'] and doc.content)
+            content_available = content_available or bool(doc and can_view_owner_data(doc.user_id) and doc.content)
 
-        result.append({
+        history_data = {
             'id': h.id,
             'action': h.action,
             'file_id': h.file_id,
             'filename': h.filename,
             'time': h.created_at.strftime('%Y-%m-%d %H:%M'),
             'content_available': content_available,
-            'generated_available': generated_available
-        })
+            'generated_available': generated_available,
+            'read_only': h.user_id != session['user_id']
+        }
+        if is_admin_view:
+            history_data.update(owner_details(h.user_id))
+        result.append(history_data)
 
-    return jsonify({'success': True, 'history': result})
+    return jsonify({'success': True, 'history': result, 'admin_view': is_admin_view})
 
 @app.route('/api/history/<int:history_id>', methods=['GET'])
 @login_required
 def get_history_detail(history_id):
     record = db.session.get(History, history_id)
-    if not record or record.user_id != session['user_id']:
+    if not record or not can_view_owner_data(record.user_id):
         return jsonify({'success': False, 'error': 'History item not found'}), 404
+
+    record_owner = owner_details(record.user_id) if current_user_is_admin() else {}
+    access_metadata = {
+        'read_only': record.user_id != session['user_id'],
+        **record_owner
+    }
 
     generated_items = None
     if record.generated_content:
@@ -770,11 +877,12 @@ def get_history_detail(history_id):
             'time': record.created_at.strftime('%Y-%m-%d %H:%M'),
             'generated_items': generated_items,
             'content': '',
-            'message': 'No document is linked to this history item.'
+            'message': 'No document is linked to this history item.',
+            **access_metadata
         })
 
     doc = db.session.get(File, record.file_id)
-    if not doc or doc.user_id != session['user_id']:
+    if not doc or not can_view_owner_data(doc.user_id):
         return jsonify({
             'success': True,
             'id': record.id,
@@ -783,7 +891,8 @@ def get_history_detail(history_id):
             'time': record.created_at.strftime('%Y-%m-%d %H:%M'),
             'generated_items': generated_items,
             'content': '',
-            'message': 'The linked document is no longer available.'
+            'message': 'The linked document is no longer available.',
+            **access_metadata
         })
 
     return jsonify({
@@ -795,7 +904,8 @@ def get_history_detail(history_id):
         'filetype': doc.filetype,
         'word_count': doc.word_count,
         'generated_items': generated_items,
-        'content': doc.content or ''
+        'content': doc.content or '',
+        **access_metadata
     })
 
 @app.route('/api/history/<int:history_id>', methods=['DELETE'])
@@ -817,7 +927,14 @@ def landing():
 @app.route('/home')
 @login_required
 def home():
+    if current_user_is_admin():
+        return redirect(url_for('admin_dashboard'))
     return render_template('Index.html')
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    return render_template('admin.html')
 
 @app.route('/login')
 def login():
@@ -859,11 +976,7 @@ def summarize():
 @app.route("/history")
 @login_required
 def history():
-    records = History.query.filter_by(user_id=session['user_id']) \
-        .order_by(History.created_at.desc()) \
-        .all()
-
-    return render_template('history.html', history=records)
+    return render_template('history.html')
 
 
 
@@ -871,6 +984,18 @@ def history():
 
 def ensure_db_schema():
     inspector = inspect(db.engine)
+    if inspector.has_table('user'):
+        columns = [col['name'] for col in inspector.get_columns('user')]
+        if 'role' not in columns:
+            db.session.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'client'"))
+            db.session.commit()
+        db.session.execute(text("UPDATE user SET role = 'client' WHERE role IS NULL OR role = ''"))
+        for admin_email in configured_admin_emails():
+            db.session.execute(
+                text("UPDATE user SET role = 'admin' WHERE lower(email) = :email"),
+                {'email': admin_email}
+            )
+        db.session.commit()
     if inspector.has_table('file'):
         columns = [col['name'] for col in inspector.get_columns('file')]
         if 'original_filename' not in columns:
@@ -888,8 +1013,12 @@ def ensure_db_schema():
             db.session.execute(text('ALTER TABLE history ADD COLUMN generated_content TEXT'))
             db.session.commit()
 
-if __name__ == '__main__':
+def initialize_database():
     with app.app_context():
         db.create_all()
         ensure_db_schema()
+
+initialize_database()
+
+if __name__ == '__main__':
     app.run(debug=True)

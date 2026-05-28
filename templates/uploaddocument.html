@@ -27,6 +27,7 @@
       <a href="/uploaddocument" class="nav-item active"><i class="ti ti-folder"></i> Documents</a>
       <a href="/history" class="nav-item"><i class="ti ti-history"></i> History</a>
       <a href="/home" class="nav-item"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+      <a href="/admin" class="nav-item" id="adminConsoleLink" style="display:none;"><i class="ti ti-shield-lock"></i> Admin Console</a>
     </nav>
 
     <div class="sidebar-footer">
@@ -121,7 +122,7 @@
           <div class="section-header">
             <div>
               <div class="card-title">Document History</div>
-              <div class="card-sub">Previously uploaded and processed files.</div>
+              <div class="card-sub" id="documentScope">Previously uploaded and processed files.</div>
             </div>
           </div>
           <div id="historyList">
@@ -159,6 +160,11 @@ async function loadMe() {
     if (!d.success) return;
     document.getElementById('sidebarUsername').textContent = d.username;
     document.getElementById('userAvatar').textContent = d.username.substring(0, 2).toUpperCase();
+    document.querySelector('.user-plan').textContent = d.role === 'admin' ? 'Administrator' : 'Active session';
+    if (d.role === 'admin') {
+      document.getElementById('documentScope').textContent = 'Admin view: uploaded files from all client accounts.';
+      document.getElementById('adminConsoleLink').style.display = 'flex';
+    }
   } catch (e) {}
 }
 

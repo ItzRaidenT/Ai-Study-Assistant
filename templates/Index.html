@@ -186,6 +186,7 @@ async function loadMe() {
     if (data.success) {
       document.getElementById('usernameDash').textContent = data.username;
       document.getElementById('userAvatar').textContent = data.username.substring(0, 2).toUpperCase();
+      document.querySelector('.user-plan').textContent = data.role === 'admin' ? 'Administrator' : 'Active session';
     }
   } catch (err) {
     console.error('Failed to load user info', err);

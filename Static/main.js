@@ -167,12 +167,12 @@ async function loadHistory(btn) {
         <div class="history-file-icon"><i class="ti ${doc.filename.endsWith('.pdf') ? 'ti-file-type-pdf' : 'ti-file-text'}"></i></div>
         <div class="history-info">
           <p class="history-name">${escapeHtml(doc.filename)}</p>
-          <p class="history-meta">${doc.word_count.toLocaleString()} words · ${doc.uploaded_at}</p>
+          <p class="history-meta">${doc.word_count.toLocaleString()} words | ${doc.uploaded_at}${doc.owner_username ? ` | Owner: ${escapeHtml(doc.owner_username)}` : ''}</p>
           <p class="history-preview">${escapeHtml(doc.preview)}</p>
         </div>
         <div class="history-actions">
           <button class="btn-icon" title="View text" onclick="viewDoc(${doc.id})"><i class="ti ti-eye"></i></button>
-          <button class="btn-icon danger" title="Delete" onclick="deleteDoc(${doc.id})"><i class="ti ti-trash"></i></button>
+          ${doc.read_only ? '' : `<button class="btn-icon danger" title="Delete" onclick="deleteDoc(${doc.id})"><i class="ti ti-trash"></i></button>`}
         </div>
       </div>
     `).join('');
@@ -194,7 +194,9 @@ async function viewDoc(id) {
   if (!data.success) return;
 
   currentFullText = data.content;
-  document.getElementById('modalTitle').textContent = data.filename;
+  document.getElementById('modalTitle').textContent = data.owner_username
+    ? `${data.filename} (Owner: ${data.owner_username})`
+    : data.filename;
   document.getElementById('modalBody').textContent = data.content;
   document.getElementById('modalOverlay').style.display = 'flex';
 }
