@@ -15,18 +15,18 @@
         <div class="logo-text">StudyAI</div>
         <div class="logo-sub">Study Assistant</div>
       </div>
-      <button class="closesidebar" type="button" data-sidebar-toggle></button>
     </div>
 
     <nav class="nav">
       <div class="nav-section">Study</div>
       <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
       <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
+      <a href="/quiz" class="nav-item"><i class="ti ti-list-check"></i> Quiz</a>
 
       <div class="nav-section">Library</div>
       <a href="/uploaddocument" class="nav-item"><i class="ti ti-folder"></i> Documents</a>
       <a href="/history" class="nav-item"><i class="ti ti-history"></i> History</a>
-      <a href="/" class="nav-item active"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+      <a href="/home" class="nav-item active"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
     </nav>
 
     <div class="sidebar-footer">
@@ -86,6 +86,11 @@
             <div class="stat-value">Organized</div>
             <div class="stat-sub">Keep extracted text in one place.</div>
           </div>
+          <div class="stat-card">
+            <div class="stat-label"><i class="ti ti-list-check"></i> Quizzes</div>
+            <div class="stat-value">Active</div>
+            <div class="stat-sub">Test yourself with AI practice questions.</div>
+          </div>
         </div>
 
         <div class="activity-list">
@@ -105,6 +110,14 @@
             </div>
             <button class="btn" onclick="window.location.href='/flashcards'">Open</button>
           </div>
+          <div class="activity-item">
+            <div class="activity-icon ai-quiz"><i class="ti ti-list-check"></i></div>
+            <div class="activity-body">
+              <div class="activity-title">Generate a quiz</div>
+              <div class="activity-meta">Create multiple-choice questions from your study material.</div>
+            </div>
+            <button class="btn" onclick="window.location.href='/quiz'">Open</button>
+          </div>
         </div>
       </div>
 
@@ -113,7 +126,7 @@
           <div class="model-card selected">
             <span class="model-tag tag-balanced">Balanced</span>
             <div class="model-name">Groq Study Agent</div>
-            <div class="model-desc">Fast Groq-backed summaries and flashcards for study workflows.</div>
+            <div class="model-desc">Fast Groq-backed summaries, flashcards, and quizzes for study workflows.</div>
             <span class="active-badge">Active</span>
           </div>
           <div class="model-card">
@@ -173,6 +186,7 @@ async function loadMe() {
     if (data.success) {
       document.getElementById('usernameDash').textContent = data.username;
       document.getElementById('userAvatar').textContent = data.username.substring(0, 2).toUpperCase();
+      document.querySelector('.user-plan').textContent = data.role === 'admin' ? 'Administrator' : 'Active session';
     }
   } catch (err) {
     console.error('Failed to load user info', err);

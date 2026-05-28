@@ -139,8 +139,14 @@ function copyText() {
   });
 }
 
-async function loadHistory() {
+async function loadHistory(btn) {
   const list = document.getElementById('historyList');
+  const refreshBtn = btn || document.getElementById('documentRefreshBtn');
+
+  if (refreshBtn) {
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = `<i class="ti ti-loader-2 spin-icon"></i> Refreshing`;
+  }
 
   try {
     const res = await fetch('/documents');
@@ -152,6 +158,7 @@ async function loadHistory() {
           <i class="ti ti-folder-open"></i>
           <p>No documents yet. Upload your first file above.</p>
         </div>`;
+      if (btn) showToast('Documents refreshed');
       return;
     }
 
@@ -160,17 +167,24 @@ async function loadHistory() {
         <div class="history-file-icon"><i class="ti ${doc.filename.endsWith('.pdf') ? 'ti-file-type-pdf' : 'ti-file-text'}"></i></div>
         <div class="history-info">
           <p class="history-name">${escapeHtml(doc.filename)}</p>
-          <p class="history-meta">${doc.word_count.toLocaleString()} words · ${doc.uploaded_at}</p>
+          <p class="history-meta">${doc.word_count.toLocaleString()} words | ${doc.uploaded_at}${doc.owner_username ? ` | Owner: ${escapeHtml(doc.owner_username)}` : ''}</p>
           <p class="history-preview">${escapeHtml(doc.preview)}</p>
         </div>
         <div class="history-actions">
           <button class="btn-icon" title="View text" onclick="viewDoc(${doc.id})"><i class="ti ti-eye"></i></button>
-          <button class="btn-icon danger" title="Delete" onclick="deleteDoc(${doc.id})"><i class="ti ti-trash"></i></button>
+          ${doc.read_only ? '' : `<button class="btn-icon danger" title="Delete" onclick="deleteDoc(${doc.id})"><i class="ti ti-trash"></i></button>`}
         </div>
       </div>
     `).join('');
+    if (btn) showToast('Documents refreshed');
   } catch (err) {
     list.innerHTML = `<p style="color:var(--text-secondary);text-align:center;padding:2rem;">Could not load history.</p>`;
+    showToast('Could not refresh documents');
+  } finally {
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = `<i class="ti ti-refresh"></i> Refresh`;
+    }
   }
 }
 
@@ -180,13 +194,20 @@ async function viewDoc(id) {
   if (!data.success) return;
 
   currentFullText = data.content;
-  document.getElementById('modalTitle').textContent = data.filename;
+  document.getElementById('modalTitle').textContent = data.owner_username
+    ? `${data.filename} (Owner: ${data.owner_username})`
+    : data.filename;
   document.getElementById('modalBody').textContent = data.content;
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
 async function deleteDoc(id) {
-  if (!confirm('Delete this document from history?')) return;
+  const confirmed = await confirmDelete({
+    title: 'Delete document?',
+    message: 'This removes the document and its extracted text. Related history items will remain, but they will no longer be able to show this content.',
+    confirmText: 'Delete Document'
+  });
+  if (!confirmed) return;
 
   const res = await fetch(`/documents/${id}`, { method: 'DELETE' });
   const data = await res.json();
@@ -203,6 +224,42 @@ async function deleteDoc(id) {
         </div>`;
     }
   }
+}
+
+function confirmDelete({ title, message, confirmText = 'Delete' }) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay confirm-overlay';
+    overlay.innerHTML = `
+      <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" onclick="event.stopPropagation()">
+        <div class="confirm-icon"><i class="ti ti-alert-triangle"></i></div>
+        <div class="confirm-copy">
+          <h3 id="confirmTitle">${escapeHtml(title)}</h3>
+          <p>${escapeHtml(message)}</p>
+        </div>
+        <div class="modal-footer confirm-actions">
+          <button class="btn" type="button" data-confirm-cancel>Cancel</button>
+          <button class="btn danger confirm-danger" type="button" data-confirm-ok><i class="ti ti-trash"></i> ${escapeHtml(confirmText)}</button>
+        </div>
+      </div>
+    `;
+
+    const close = value => {
+      overlay.remove();
+      document.removeEventListener('keydown', handleKey);
+      resolve(value);
+    };
+    const handleKey = event => {
+      if (event.key === 'Escape') close(false);
+    };
+
+    overlay.addEventListener('click', () => close(false));
+    overlay.querySelector('[data-confirm-cancel]').addEventListener('click', () => close(false));
+    overlay.querySelector('[data-confirm-ok]').addEventListener('click', () => close(true));
+    document.addEventListener('keydown', handleKey);
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-confirm-cancel]').focus();
+  });
 }
 
 function formatSize(bytes) {
