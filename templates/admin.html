@@ -190,11 +190,11 @@ function escapeAdminHtml(value) {
 }
 
 function roleBadge(role) {
-  return `<span class="admin-role ${role === 'admin' ? 'role-admin' : 'role-client'}">${escapeAdminHtml(role)}</span>`;
+  return <span class="admin-role ${role === 'admin' ? 'role-admin' : 'role-client'}">${escapeAdminHtml(role)}</span>;
 }
 
 function actionBadge(action) {
-  return `<span class="admin-action action-${escapeAdminHtml(action)}">${escapeAdminHtml(actionLabels[action] || action)}</span>`;
+  return <span class="admin-action action-${escapeAdminHtml(action)}">${escapeAdminHtml(actionLabels[action] || action)}</span>;
 }
 
 function showAdminPanel(name) {
