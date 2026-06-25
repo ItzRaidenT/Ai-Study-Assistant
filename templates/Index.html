@@ -10,7 +10,7 @@
 <div class="dash">
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <span class="app-logo-mark" aria-hidden="true"></span>
       <div>
         <div class="logo-text">StudyAI</div>
         <div class="logo-sub">Study Assistant</div>
@@ -19,6 +19,7 @@
 
     <nav class="nav">
       <div class="nav-section">Study</div>
+      <a href="/chat" class="nav-item"><i class="ti ti-message-chatbot"></i> AI Chat</a>
       <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
       <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
       <a href="/quiz" class="nav-item"><i class="ti ti-list-check"></i> Quiz</a>
@@ -57,7 +58,7 @@
       </div>
       <div class="topbar-actions">
         <button class="btn" onclick="window.location.href='/uploaddocument'"><i class="ti ti-upload"></i> Upload</button>
-        <button class="btn primary" onclick="window.location.href='/summarize'"><i class="ti ti-sparkles"></i> New Session</button>
+        <button class="btn primary" onclick="window.location.href='/chat'"><i class="ti ti-message-chatbot"></i> New Chat</button>
       </div>
     </div>
 
@@ -67,6 +68,32 @@
           <div class="page-title">
             <h1>Welcome to StudyAI</h1>
             <p>Your AI study assistant at a glance.</p>
+          </div>
+        </div>
+
+        <div class="dashboard-hero-card">
+          <div class="dashboard-hero-copy">
+            <div class="hero-kicker"><i class="ti ti-sparkles"></i> Your study sidekick</div>
+            <h2>Drop in notes, then let StudyAI help you make sense of them.</h2>
+            <p>Start with chat when you feel stuck, or jump straight into summaries, flashcards, and quizzes when you are ready to practice.</p>
+            <div class="dashboard-hero-actions">
+              <button class="btn primary" onclick="window.location.href='/chat'"><i class="ti ti-message-chatbot"></i> Ask StudyAI</button>
+              <button class="btn" onclick="window.location.href='/uploaddocument'"><i class="ti ti-cloud-upload"></i> Add Notes</button>
+            </div>
+          </div>
+          <div class="dashboard-mascot-wrap" aria-hidden="true">
+            <div class="app-mascot">
+              <div class="app-mascot-antenna"></div>
+              <div class="app-mascot-head">
+                <span class="app-mascot-eye left"></span>
+                <span class="app-mascot-eye right"></span>
+                <span class="app-mascot-mouth"></span>
+              </div>
+              <div class="app-mascot-body">
+                <span></span>
+              </div>
+              <div class="app-mascot-shadow"></div>
+            </div>
           </div>
         </div>
 
@@ -94,6 +121,14 @@
         </div>
 
         <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-icon ai-chat"><i class="ti ti-message-chatbot"></i></div>
+            <div class="activity-body">
+              <div class="activity-title">Ask AI chat</div>
+              <div class="activity-meta">Talk through notes, examples, and review questions.</div>
+            </div>
+            <button class="btn" onclick="window.location.href='/chat'">Open</button>
+          </div>
           <div class="activity-item">
             <div class="activity-icon ai-sum"><i class="ti ti-sparkles"></i></div>
             <div class="activity-body">

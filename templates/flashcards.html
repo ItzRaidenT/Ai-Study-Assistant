@@ -10,7 +10,7 @@
 <div class="dash">
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <span class="app-logo-mark" aria-hidden="true"></span>
       <div>
         <div class="logo-text">StudyAI</div>
         <div class="logo-sub">Study Assistant</div>
@@ -19,6 +19,7 @@
 
     <nav class="nav">
       <div class="nav-section">Study</div>
+      <a href="/chat" class="nav-item"><i class="ti ti-message-chatbot"></i> AI Chat</a>
       <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
       <a href="/flashcards" class="nav-item active"><i class="ti ti-cards"></i> Flashcards</a>
       <a href="/quiz" class="nav-item"><i class="ti ti-list-check"></i> Quiz</a>
@@ -58,19 +59,25 @@
     </div>
 
     <div class="content">
-      <div class="section-header">
-        <div class="page-title">
-          <p>Generate and study Q&A cards from your documents.</p>
+      <div class="study-hero flashcard-hero">
+        <div>
+          <div class="hero-kicker"><i class="ti ti-cards"></i> Flashcard deck</div>
+          <h2>Build a clean study deck from any uploaded document.</h2>
+          <p>Generate cards, flip through them one by one, or scan the full list when you want a quick review pass.</p>
+        </div>
+        <div class="hero-stats">
+          <div><strong>3-20</strong><span>cards</span></div>
+          <div><strong>2</strong><span>views</span></div>
         </div>
       </div>
 
-      <div class="app-card">
+      <div class="app-card generator-card">
         <div class="toolbar-row">
-          <div class="form-group" style="flex:1; margin-top:0;">
+          <div class="form-group quiz-doc-field">
             <label for="docSelect">Document</label>
             <select id="docSelect"><option value="">Select a document</option></select>
           </div>
-          <div class="form-group" style="width:120px; margin-top:0;">
+          <div class="form-group quiz-count-field">
             <label for="cardCount">Cards</label>
             <input type="number" id="cardCount" value="10" min="3" max="20">
           </div>
@@ -156,7 +163,7 @@ function renderStudyView() {
   ).join('');
 
   document.getElementById('mainArea').innerHTML = `
-    <div class="app-card">
+    <div class="app-card flashcard-shell study-surface">
       <div class="section-header">
         <div>
           <div class="card-title" id="progressText">Card ${current + 1} of ${cards.length}</div>
@@ -169,17 +176,23 @@ function renderStudyView() {
       </div>
 
       <div class="study-view" id="studyView">
-        <div class="flashcard">
+        <div class="flashcard-stage">
+          <button class="btn-icon flash-nav" onclick="navigate(-1)" ${current === 0 ? 'disabled' : ''} aria-label="Previous card"><i class="ti ti-chevron-left"></i></button>
+          <div class="flashcard">
           <div class="flashcard-inner" id="flashCard" onclick="flipCard()">
             <div class="flashcard-face">
-              <div class="card-kicker">Question</div>
+              <div class="flashcard-topline"><div class="card-kicker">Question</div><i class="ti ti-click"></i></div>
               <div class="card-text" id="cardQ">${escHtml(cards[current].question)}</div>
+              <div class="card-hint">Click or press Space to reveal the answer</div>
             </div>
             <div class="flashcard-face flashcard-back">
-              <div class="card-kicker">Answer</div>
+              <div class="flashcard-topline"><div class="card-kicker">Answer</div><i class="ti ti-check"></i></div>
               <div class="card-text" id="cardA">${escHtml(cards[current].answer)}</div>
+              <div class="card-hint">Flip back whenever you need another look</div>
             </div>
           </div>
+          </div>
+          <button class="btn-icon flash-nav" onclick="navigate(1)" ${current === cards.length - 1 ? 'disabled' : ''} aria-label="Next card"><i class="ti ti-chevron-right"></i></button>
         </div>
         <div class="button-row" style="justify-content:center; margin-top:16px;">
           <button class="btn" id="prevBtn" onclick="navigate(-1)" ${current === 0 ? 'disabled' : ''}><i class="ti ti-arrow-left"></i> Prev</button>

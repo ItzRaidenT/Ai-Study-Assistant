@@ -10,7 +10,7 @@
 <div class="dash">
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <span class="app-logo-mark" aria-hidden="true"></span>
       <div>
         <div class="logo-text">StudyAI</div>
         <div class="logo-sub">Study Assistant</div>
@@ -19,6 +19,7 @@
 
     <nav class="nav">
       <div class="nav-section">Study</div>
+      <a href="/chat" class="nav-item"><i class="ti ti-message-chatbot"></i> AI Chat</a>
       <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
       <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
       <a href="/quiz" class="nav-item"><i class="ti ti-list-check"></i> Quiz</a>
@@ -59,39 +60,63 @@
     </div>
 
     <div class="content">
-      <div class="section-header">
-        <div class="page-title">
-          <p>Upload study material and manage extracted text.</p>
+      <div class="study-hero document-hero">
+        <div class="study-hero-copy">
+          <div class="hero-kicker"><i class="ti ti-folder-up"></i> Document library</div>
+          <h2>Upload study files and turn them into usable text.</h2>
+          <p class="hero-description">Add PDFs or TXT files, extract readable content, then send the material straight into summaries, flashcards, or quizzes.</p>
+        </div>
+        <div class="hero-stats">
+          <div><strong>PDF</strong><span>supported</span></div>
+          <div><strong>TXT</strong><span>supported</span></div>
         </div>
       </div>
 
       <div class="document-layout">
         <section class="stack">
-          <div class="app-card">
-            <div class="card-title">Upload</div>
-            <div class="card-sub">Add a PDF or TXT file. StudyAI will extract the readable content.</div>
+          <div class="app-card generator-card upload-panel">
+            <div class="summary-card-heading">
+              <div class="summary-card-icon"><i class="ti ti-cloud-upload"></i></div>
+              <div>
+                <div class="card-title">Upload Source</div>
+                <div class="card-sub">Add a PDF or TXT file. StudyAI will extract the readable content.</div>
+              </div>
+            </div>
 
             <div class="drop-zone upload-card" id="dropZone">
-              <i class="ti ti-cloud-upload"></i>
-              <p class="upload-label">Drag and drop your file here</p>
+              <div class="upload-cloud">
+                <i class="ti ti-cloud-upload"></i>
+              </div>
+              <p class="upload-label">Drop your study file here</p>
               <p class="card-sub">PDF or TXT, up to 16 MB</p>
-              <label class="btn primary" for="fileInput" style="margin-top:14px;">Browse Files</label>
+              <div class="upload-type-row">
+                <span><i class="ti ti-file-type-pdf"></i> PDF</span>
+                <span><i class="ti ti-file-text"></i> TXT</span>
+              </div>
+              <label class="btn primary upload-browse" for="fileInput"><i class="ti ti-folder-open"></i> Browse Files</label>
               <input type="file" id="fileInput" accept=".pdf,.txt" hidden>
             </div>
 
-            <div class="file-preview" id="filePreview" style="display:none; margin-top:12px;">
+            <div class="file-preview upload-preview" id="filePreview" style="display:none;">
               <div class="file-row">
                 <div class="doc-icon"><i class="ti ti-file" id="fileIcon"></i></div>
                 <div class="row-body">
                   <div class="row-title" id="fileName"></div>
                   <div class="row-meta" id="fileSize"></div>
                 </div>
-                <button class="icon-btn" id="clearFile" title="Remove file"><i class="ti ti-x"></i></button>
+                <button class="btn-icon" id="clearFile" title="Remove file"><i class="ti ti-x"></i></button>
               </div>
               <button class="btn primary btn-full" id="uploadBtn" onclick="uploadFile()"><i class="ti ti-file-import"></i> Extract Text</button>
             </div>
 
-            <div class="progress-wrap" id="progressWrap" style="display:none; margin-top:12px;">
+            <div class="progress-wrap upload-progress" id="progressWrap" style="display:none;">
+              <div class="summary-card-heading">
+                <div class="summary-card-icon"><i class="ti ti-loader-2 spin-icon"></i></div>
+                <div>
+                  <div class="card-title">Processing File</div>
+                  <div class="card-sub">Extracting readable text for your study workspace.</div>
+                </div>
+              </div>
               <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
               </div>
@@ -99,13 +124,13 @@
             </div>
           </div>
 
-          <div class="result-card" id="resultCard" style="display:none;">
+          <div class="result-card upload-result study-surface" id="resultCard" style="display:none;">
             <div class="section-header">
               <div>
                 <div class="card-title" id="resultFilename"></div>
                 <div class="card-sub" id="resultMeta"></div>
               </div>
-              <i class="ti ti-circle-check" style="color:#3B6D11;"></i>
+              <div class="result-check"><i class="ti ti-circle-check"></i></div>
             </div>
             <div class="result-section">
               <div class="card-title">Extracted Text Preview</div>
@@ -118,11 +143,14 @@
           </div>
         </section>
 
-        <section class="app-card document-history-panel">
+        <section class="app-card document-history-panel study-surface">
           <div class="section-header">
-            <div>
-              <div class="card-title">Document History</div>
-              <div class="card-sub" id="documentScope">Previously uploaded and processed files.</div>
+            <div class="summary-card-heading">
+              <div class="summary-card-icon"><i class="ti ti-folder-open"></i></div>
+              <div>
+                <div class="card-title">Document History</div>
+                <div class="card-sub" id="documentScope">Previously uploaded and processed files.</div>
+              </div>
             </div>
           </div>
           <div id="historyList">

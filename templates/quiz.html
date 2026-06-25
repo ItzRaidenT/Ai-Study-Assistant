@@ -10,7 +10,7 @@
 <div class="dash">
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <span class="app-logo-mark" aria-hidden="true"></span>
       <div>
         <div class="logo-text">StudyAI</div>
         <div class="logo-sub">Study Assistant</div>
@@ -19,6 +19,7 @@
 
     <nav class="nav">
       <div class="nav-section">Study</div>
+      <a href="/chat" class="nav-item"><i class="ti ti-message-chatbot"></i> AI Chat</a>
       <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
       <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
       <a href="/quiz" class="nav-item active"><i class="ti ti-list-check"></i> Quiz</a>
@@ -58,13 +59,19 @@
     </div>
 
     <div class="content">
-      <div class="section-header">
-        <div class="page-title">
-          <p>Generate multiple-choice practice questions from a document.</p>
+      <div class="study-hero quiz-hero">
+        <div>
+          <div class="hero-kicker"><i class="ti ti-list-check"></i> Practice quiz</div>
+          <h2>Turn notes into focused multiple-choice practice.</h2>
+          <p>Pick a document, choose the question count, and move through a cleaner quiz flow with instant review.</p>
+        </div>
+        <div class="hero-stats">
+          <div><strong>3-15</strong><span>questions</span></div>
+          <div><strong>MCQ</strong><span>format</span></div>
         </div>
       </div>
 
-      <div class="app-card">
+      <div class="app-card generator-card">
         <div class="toolbar-row">
           <div class="form-group quiz-doc-field">
             <label for="docSelect">Document</label>
@@ -156,9 +163,10 @@ function renderQuiz() {
   const item = quiz[current];
   const dots = quiz.map((_, i) => `<button class="quiz-dot ${answers[i] ? 'answered' : ''} ${i === current ? 'current' : ''}" onclick="goTo(${i})">${i + 1}</button>`).join('');
   const progress = answers.filter(Boolean).length;
+  const percent = Math.round((progress / quiz.length) * 100);
 
   document.getElementById('mainArea').innerHTML = `
-    <div class="app-card quiz-shell">
+    <div class="app-card quiz-shell study-surface">
       <div class="section-header">
         <div>
           <div class="card-title">Question ${current + 1} of ${quiz.length}</div>
@@ -166,10 +174,14 @@ function renderQuiz() {
         </div>
         <div class="quiz-dots">${dots}</div>
       </div>
+      <div class="quiz-progress-track"><div style="width:${percent}%"></div></div>
 
-      <div class="quiz-question">${escHtml(item.question)}</div>
+      <div class="quiz-question">
+        <div class="card-kicker">Question</div>
+        <div>${escHtml(item.question)}</div>
+      </div>
       <div class="quiz-options">
-        ${item.options.map(option => optionButton(option)).join('')}
+        ${item.options.map((option, index) => optionButton(option, index)).join('')}
       </div>
 
       ${checked ? feedbackBlock(item) : ''}
@@ -184,13 +196,13 @@ function renderQuiz() {
   `;
 }
 
-function optionButton(option) {
+function optionButton(option, index) {
   const item = quiz[current];
   const selected = answers[current] === option;
   let state = selected ? 'selected' : '';
   if (checked && option === item.answer) state += ' correct';
   if (checked && selected && option !== item.answer) state += ' wrong';
-  return `<button class="quiz-option ${state}" onclick='selectAnswer(${JSON.stringify(option)})'>${escHtml(option)}</button>`;
+  return `<button class="quiz-option ${state}" onclick='selectAnswer(${JSON.stringify(option)})'><span>${String.fromCharCode(65 + index)}</span>${escHtml(option)}</button>`;
 }
 
 function feedbackBlock(item) {
@@ -234,7 +246,7 @@ function showResults() {
   const percent = Math.round((score / quiz.length) * 100);
 
   document.getElementById('mainArea').innerHTML = `
-    <div class="app-card quiz-results">
+    <div class="app-card quiz-results study-surface">
       <div class="section-header">
         <div>
           <div class="card-title">Quiz Results</div>

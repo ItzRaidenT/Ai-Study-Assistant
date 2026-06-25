@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block head %}
+<title>AI Chat - StudyAI</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="dash">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="app-logo-mark" aria-hidden="true"></span>
+      <div>
+        <div class="logo-text">StudyAI</div>
+        <div class="logo-sub">Study Assistant</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">Study</div>
+      <a href="/chat" class="nav-item active"><i class="ti ti-message-chatbot"></i> AI Chat</a>
+      <a href="/summarize" class="nav-item"><i class="ti ti-file-text"></i> Summarize</a>
+      <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
+      <a href="/quiz" class="nav-item"><i class="ti ti-list-check"></i> Quiz</a>
+
+      <div class="nav-section">Library</div>
+      <a href="/uploaddocument" class="nav-item"><i class="ti ti-folder"></i> Documents</a>
+      <a href="/history" class="nav-item"><i class="ti ti-history"></i> History</a>
+      <a href="/home" class="nav-item"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="avatar" id="userAvatar">--</div>
+        <div>
+          <div class="user-name" id="sidebarUsername"></div>
+          <div class="user-plan">Active session</div>
+        </div>
+      </div>
+      <button class="theme-btn" type="button" data-theme-toggle>
+        <i class="ti ti-moon"></i>
+      </button>
+      <form method="POST" action="/logout" style="width:100%;">
+        <button type="submit" class="btn danger btn-full"><i class="ti ti-logout"></i> Sign Out</button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title">
+        <h1>AI Chat</h1>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" onclick="window.location.href='/uploaddocument'"><i class="ti ti-upload"></i> Upload</button>
+        <button class="btn" onclick="clearChat()"><i class="ti ti-trash"></i> Clear</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="study-hero chat-hero">
+        <div class="study-hero-copy">
+          <div class="hero-kicker"><i class="ti ti-message-chatbot"></i> Study chat</div>
+          <h2>Ask questions, unpack concepts, and work through your notes.</h2>
+          <p class="hero-description">Chat freely, or select a document to keep answers grounded in your uploaded material.</p>
+        </div>
+        <div class="hero-stats">
+          <div><strong>Doc</strong><span>aware</span></div>
+          <div><strong>Live</strong><span>chat</span></div>
+        </div>
+      </div>
+
+      <div class="app-grid chat-layout">
+        <section class="app-card generator-card chat-context-card">
+          <div class="summary-card-heading">
+            <div class="summary-card-icon"><i class="ti ti-books"></i></div>
+            <div>
+              <div class="card-title">Context</div>
+              <div class="card-sub">Choose a document when you want grounded answers.</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="docSelect">Document</label>
+            <select id="docSelect">
+              <option value="">No document selected</option>
+            </select>
+          </div>
+
+          <div class="chat-prompts">
+            <button class="prompt-chip" type="button" onclick="usePrompt('Explain the main idea in simple terms.')"><i class="ti ti-bulb"></i> Explain</button>
+            <button class="prompt-chip" type="button" onclick="usePrompt('Quiz me on the most important points.')"><i class="ti ti-list-check"></i> Quiz me</button>
+            <button class="prompt-chip" type="button" onclick="usePrompt('What should I review first?')"><i class="ti ti-target-arrow"></i> Review plan</button>
+            <button class="prompt-chip" type="button" onclick="usePrompt('Make a short example that helps me understand this.')"><i class="ti ti-code-dots"></i> Example</button>
+          </div>
+
+          <div class="summary-source-meta chat-meta">
+            <span><i class="ti ti-shield-check"></i> Uses your account files</span>
+            <span><i class="ti ti-history"></i> Keeps this chat in-browser</span>
+          </div>
+        </section>
+
+        <section class="app-card chat-panel">
+          <div class="chat-thread" id="chatThread">
+            <div class="empty-state chat-empty">
+              <i class="ti ti-message-circle"></i>
+              <p>Start a study chat or select a document first.</p>
+            </div>
+          </div>
+
+          <form class="chat-composer" id="chatForm">
+            <textarea id="messageInput" placeholder="Ask StudyAI anything about your notes..." rows="2"></textarea>
+            <button class="btn primary chat-send" id="sendBtn" type="submit" aria-label="Send message" title="Send message">
+              <i class="ti ti-send"></i>
+            </button>
+          </form>
+          <div class="error-msg" id="errorMsg"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const messages = [];
+
+async function loadDocs() {
+  try {
+    const r = await fetch('/documents?scope=own');
+    const d = await r.json();
+    if (!d.success) return;
+
+    const sel = document.getElementById('docSelect');
+    d.documents.forEach(doc => {
+      const opt = document.createElement('option');
+      opt.value = doc.id;
+      opt.textContent = `${doc.filename} (${doc.word_count} words)`;
+      sel.appendChild(opt);
+    });
+  } catch (e) {}
+}
+
+function ensureThread() {
+  const thread = document.getElementById('chatThread');
+  if (thread.querySelector('.chat-empty')) thread.innerHTML = '';
+  return thread;
+}
+
+function appendMessage(role, content) {
+  const thread = ensureThread();
+  const row = document.createElement('div');
+  row.className = `chat-message ${role}`;
+  row.innerHTML = `
+    <div class="chat-avatar"><i class="ti ${role === 'assistant' ? 'ti-message-chatbot' : 'ti-user'}"></i></div>
+    <div class="chat-bubble">
+      <div class="chat-role">${role === 'assistant' ? 'StudyAI' : 'You'}</div>
+      <div class="chat-text">${formatMessage(content)}</div>
+      ${role === 'assistant' ? '<button class="copy-chat" type="button" onclick="copyBubble(this)"><i class="ti ti-copy"></i> Copy</button>' : ''}
+    </div>
+  `;
+  thread.appendChild(row);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function appendThinking() {
+  const thread = ensureThread();
+  const row = document.createElement('div');
+  row.className = 'chat-message assistant thinking-row';
+  row.innerHTML = `
+    <div class="chat-avatar"><i class="ti ti-message-chatbot"></i></div>
+    <div class="chat-bubble">
+      <div class="chat-role">StudyAI</div>
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+  `;
+  thread.appendChild(row);
+  thread.scrollTop = thread.scrollHeight;
+  return row;
+}
+
+async function sendMessage(event) {
+  if (event) event.preventDefault();
+
+  const input = document.getElementById('messageInput');
+  const btn = document.getElementById('sendBtn');
+  const err = document.getElementById('errorMsg');
+  const message = input.value.trim();
+  const docId = document.getElementById('docSelect').value;
+
+  err.classList.remove('show');
+  if (!message) return;
+
+  appendMessage('user', message);
+  input.value = '';
+  input.style.height = '';
+  btn.disabled = true;
+  const thinking = appendThinking();
+
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        file_id: docId ? parseInt(docId) : null,
+        messages
+      })
+    });
+    const d = await r.json();
+    thinking.remove();
+
+    if (!d.success) {
+      err.textContent = d.error || 'Unable to send message.';
+      err.classList.add('show');
+      return;
+    }
+
+    messages.push({ role: 'user', content: message });
+    messages.push({ role: 'assistant', content: d.reply });
+    if (messages.length > 16) messages.splice(0, messages.length - 16);
+    appendMessage('assistant', d.reply);
+  } catch (e) {
+    thinking.remove();
+    err.textContent = 'Network error. Please try again.';
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    input.focus();
+  }
+}
+
+function usePrompt(text) {
+  const input = document.getElementById('messageInput');
+  input.value = text;
+  input.focus();
+}
+
+function clearChat() {
+  messages.length = 0;
+  document.getElementById('chatThread').innerHTML = `
+    <div class="empty-state chat-empty">
+      <i class="ti ti-message-circle"></i>
+      <p>Start a study chat or select a document first.</p>
+    </div>
+  `;
+  document.getElementById('errorMsg').classList.remove('show');
+}
+
+function copyBubble(button) {
+  const bubble = button.closest('.chat-bubble');
+  const text = bubble ? bubble.querySelector('.chat-text').innerText : '';
+  navigator.clipboard.writeText(text);
+}
+
+function formatMessage(value) {
+  return escHtml(value).replace(/\n/g, '<br>');
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function loadMe() {
+  try {
+    const r = await fetch('/me');
+    const d = await r.json();
+    if (!d.success) return;
+    document.getElementById('sidebarUsername').textContent = d.username;
+    document.getElementById('userAvatar').textContent = d.username.substring(0, 2).toUpperCase();
+    document.querySelector('.user-plan').textContent = d.role === 'admin' ? 'Administrator' : 'Active session';
+  } catch (e) {}
+}
+
+document.getElementById('chatForm').addEventListener('submit', sendMessage);
+document.getElementById('messageInput').addEventListener('keydown', function (event) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    sendMessage(event);
+  }
+});
+document.getElementById('messageInput').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+});
+document.getElementById('docSelect').addEventListener('change', clearChat);
+
+loadMe();
+loadDocs();
+</script>
+{% endblock %}

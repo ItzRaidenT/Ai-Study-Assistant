@@ -1,46 +1,84 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Study Assistant</title>
+{% extends "base.html" %}
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='start.css') }}">
-</head>
-<body>
+{% block head %}
+<title>StudyAI - AI Study Assistant</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='start.css') }}">
+{% endblock %}
 
-    <div class="hero">
+{% block body_class %}landing-page{% endblock %}
 
-        <nav class="navbar">
-            <div class="logo">
-                📚 AI Study Assistant
-            </div>
+{% block content %}
+<main class="landing-shell">
+    <nav class="navbar">
+        <button class="brand" type="button" onclick="goregister()" aria-label="StudyAI home">
+            <span class="brand-mark"></span>
+            <span>
+                <strong>StudyAI</strong>
+                <small>Study Assistant</small>
+            </span>
+        </button>
 
-            <div class="nav-buttons">
-                <button class="login-btn" onclick="gologin()">Login</button>
-                <button class="register-btn" onclick="goregister()">Register</button>
-            </div>
-        </nav>
+        <div class="nav-buttons">
+            <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch theme" title="Switch theme">
+                <span class="theme-icon"></span>
+                <span class="theme-label" data-theme-label>Theme</span>
+            </button>
+            <button class="login-btn" onclick="gologin()">Login</button>
+            <button class="register-btn" onclick="goregister()">Register</button>
+        </div>
+    </nav>
 
-        <div class="hero-content">
-
-            <h1>Study Smarter with AI</h1>
-
+    <section class="hero-scene">
+        <div class="hero-copy">
+            <div class="eyebrow">AI notes, chat, quizzes, and recall</div>
+            <h1>Study with a calm little AI sidekick.</h1>
             <p>
-                Upload documents, generate summaries,
-                create flashcards and chat with AI instantly.
+                Upload your notes, ask questions, turn dense material into summaries,
+                and practice with flashcards or quizzes from one focused workspace.
             </p>
 
-            <button class="start-btn" onclick="goregister()">
-                Get Started →
-            </button>
-
+            <div class="hero-actions">
+                <button class="start-btn" onclick="goregister()">Start Studying</button>
+                <button class="ghost-btn" onclick="gologin()">I have an account</button>
+            </div>
         </div>
 
-    </div>
+        <div class="study-stage" aria-hidden="true">
+            <div class="stage-grid"></div>
+            <div class="floating-card note-card card-one">
+                <span>Summary</span>
+                <strong>Key ideas cleaned up</strong>
+                <i></i>
+            </div>
+            <div class="floating-card note-card card-two">
+                <span>Quiz</span>
+                <strong>8 fresh questions</strong>
+                <i></i>
+            </div>
+            <div class="floating-card note-card card-three">
+                <span>Chat</span>
+                <strong>Explain it simply</strong>
+                <i></i>
+            </div>
+
+            <div class="mascot mascot-large">
+                <div class="mascot-antenna"></div>
+                <div class="mascot-head">
+                    <div class="mascot-glow"></div>
+                    <div class="mascot-eye left"></div>
+                    <div class="mascot-eye right"></div>
+                    <div class="mascot-smile"></div>
+                </div>
+                <div class="mascot-body">
+                    <div class="mascot-badge"></div>
+                </div>
+                <div class="mascot-shadow"></div>
+            </div>
+        </div>
+    </section>
+</main>
 
 <script>
-
 function gologin() {
     window.location.href = "/login";
 }
@@ -48,8 +86,5 @@ function gologin() {
 function goregister() {
     window.location.href = "/register";
 }
-
 </script>
-
-</body>
-</html>
+{% endblock %}

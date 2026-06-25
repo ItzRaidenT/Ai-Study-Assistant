@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Flask, render_template, jsonify, request, session, url_for
+from flask import Flask, render_template, jsonify, request, session, url_for, send_from_directory
 from werkzeug.utils import redirect, secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -10,6 +10,7 @@ import json
 import os
 import re
 import requests
+import secrets
 import uuid
 
 
@@ -40,9 +41,11 @@ app.secret_key = 'Itz_1001_Mid'  # Add secret key for sessions
 db = SQLAlchemy(app)
 
 ALLOWED_EXTENSIONS = {'pdf', 'txt'}
+ALLOWED_AVATAR_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 ROLE_CLIENT = 'client'
 ROLE_ADMIN = 'admin'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'avatars'), exist_ok=True)
 
 class user(db.Model):
     id = db.Column(db.Integer, primary_key = True)
@@ -50,6 +53,11 @@ class user(db.Model):
     email = db.Column(db.String(80), nullable = False, unique = True)
     password = db.Column(db.String(225), nullable = False)
     role = db.Column(db.String(20), nullable=False, default=ROLE_CLIENT)
+    age = db.Column(db.Integer)
+    current_grade = db.Column(db.String(80))
+    school = db.Column(db.String(160))
+    birth_date = db.Column(db.String(20))
+    profile_picture = db.Column(db.String(255))
 
     def __repr__(self) -> str:
         return f"User {self.id} {self.username}"
@@ -58,29 +66,21 @@ class user(db.Model):
 class File(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(255), nullable=False)
-
     original_filename = db.Column(db.String(255))
-
     filetype = db.Column(db.String(50))
     word_count = db.Column(db.Integer)
     content = db.Column(db.Text)
-
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
-
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 #-------------------------History model------------------------------------------------
 class History(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-
     action = db.Column(db.String(50))  # upload / delete / summarize / etc
-
     file_id = db.Column(db.Integer, nullable=True)
     filename = db.Column(db.String(255))
     generated_content = db.Column(db.Text)
-
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 #-------------------------User authentication system------------------------------------------------
@@ -182,6 +182,52 @@ def validate_password(password):
 def allow_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def allow_avatar_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_AVATAR_EXTENSIONS
+
+def profile_picture_url(user_obj):
+    if not user_obj or not user_obj.profile_picture:
+        return ''
+    return url_for('uploaded_avatar', filename=user_obj.profile_picture)
+
+def user_profile_payload(user_obj):
+    return {
+        'success': True,
+        'id': user_obj.id,
+        'username': user_obj.username,
+        'email': user_obj.email,
+        'role': user_obj.role,
+        'age': user_obj.age,
+        'current_grade': user_obj.current_grade or '',
+        'school': user_obj.school or '',
+        'birth_date': user_obj.birth_date or '',
+        'profile_picture': profile_picture_url(user_obj)
+    }
+
+def generate_temporary_password(length=12):
+    alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+    password = ''.join(secrets.choice(alphabet) for _ in range(length - 2))
+    return f"{password}A1"
+
+def delete_user_owned_files(user_obj):
+    avatar_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'avatars')
+    if user_obj.profile_picture:
+        avatar_path = os.path.join(avatar_dir, user_obj.profile_picture)
+        if os.path.exists(avatar_path):
+            try:
+                os.remove(avatar_path)
+            except OSError:
+                pass
+
+    for user_file in File.query.filter_by(user_id=user_obj.id).all():
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], user_file.filename)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+        db.session.delete(user_file)
+
 def extract_text(filepath):
     if filepath.endswith('.pdf'):
         text = ''
@@ -208,24 +254,14 @@ GROQ_CHAT_COMPLETIONS_URL = 'https://api.groq.com/openai/v1/chat/completions'
 DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile'
 
 
-def call_groq_agent(user_prompt, *, temperature=0.2, max_completion_tokens=1200):
+def call_groq_messages(messages, *, temperature=0.2, max_completion_tokens=1200):
     api_key = os.getenv('GROQ_API_KEY')
     if not api_key:
         raise RuntimeError('Missing GROQ_API_KEY environment variable')
 
     payload = {
         'model': os.getenv('GROQ_MODEL', DEFAULT_GROQ_MODEL),
-        'messages': [
-            {
-                'role': 'system',
-                'content': (
-                    'You are StudyAI, a concise AI study agent. '
-                    'Help students turn source material into accurate, clear study outputs. '
-                    'Do not invent facts that are not supported by the provided document.'
-                )
-            },
-            {'role': 'user', 'content': user_prompt}
-        ],
+        'messages': messages,
         'temperature': temperature,
         'max_completion_tokens': max_completion_tokens
     }
@@ -261,6 +297,20 @@ def call_groq_agent(user_prompt, *, temperature=0.2, max_completion_tokens=1200)
         return data['choices'][0]['message']['content'].strip()
     except (KeyError, IndexError, TypeError) as e:
         raise RuntimeError('Groq returned an unexpected response format') from e
+
+
+def call_groq_agent(user_prompt, *, temperature=0.2, max_completion_tokens=1200):
+    return call_groq_messages([
+        {
+            'role': 'system',
+            'content': (
+                'You are StudyAI, a concise AI study agent. '
+                'Help students turn source material into accurate, clear study outputs. '
+                'Do not invent facts that are not supported by the provided document.'
+            )
+        },
+        {'role': 'user', 'content': user_prompt}
+    ], temperature=temperature, max_completion_tokens=max_completion_tokens)
 
 
 def extract_json_array(raw):
@@ -344,7 +394,7 @@ def upload_file():
 def delete_file(file_id):
     user_file = db.session.get(File, file_id)
 
-    if not user_file or user_file.user_id != session['user_id']:
+    if not user_file or (user_file.user_id != session['user_id'] and not current_user_is_admin()):
         return jsonify({'error': 'File not found'}), 404
 
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], user_file.filename)
@@ -356,7 +406,7 @@ def delete_file(file_id):
         action='delete',
         file_id=user_file.id,
         filename=user_file.original_filename,
-        user_id=session['user_id']
+        user_id=user_file.user_id
     )
 
     db.session.delete(user_file)
@@ -468,8 +518,19 @@ def login_user():
 def forgot_password_api():
     data = request.get_json() or {}
     user_input = (data.get('userobj') or data.get('email') or '').strip()
+    new_password = (data.get('password') or data.get('new_password') or '').strip()
+    confirm = (data.get('confirm') or data.get('confirm_password') or '').strip()
+
     if not user_input:
         return jsonify({'success': False, 'error': 'Email or username is required'}), 400
+    if not new_password or not confirm:
+        return jsonify({'success': False, 'error': 'New password and confirmation are required'}), 400
+    if new_password != confirm:
+        return jsonify({'success': False, 'error': 'Passwords do not match'}), 400
+
+    valid, msg = validate_password(new_password)
+    if not valid:
+        return jsonify({'success': False, 'error': msg}), 400
 
     if '@' in user_input:
         user_obj = get_user_by_email(user_input.lower())
@@ -479,8 +540,13 @@ def forgot_password_api():
     if not user_obj:
         return jsonify({'success': False, 'error': 'User not found'}), 404
 
-    # In a real application, you would send an email with a reset link here
-    return jsonify({'success': True, 'message': 'Password reset instructions sent to your email (not really, this is a demo)'})
+    user_obj.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    if session.get('user_id') == user_obj.id:
+        session.clear()
+
+    return jsonify({'success': True, 'message': 'Password updated. You can log in with your new password.'})
 
 
 
@@ -489,6 +555,11 @@ def logout():
     session.clear()
     return redirect(url_for('landing'))
 
+@app.route('/uploads/avatars/<path:filename>')
+@login_required
+def uploaded_avatar(filename):
+    return send_from_directory(os.path.join(app.config['UPLOAD_FOLDER'], 'avatars'), filename)
+
 @app.route('/me', methods = ['GET'])
 @login_required
 def me():
@@ -496,13 +567,7 @@ def me():
     if not user_obj:
         session.clear()
         return jsonify({'success': False, 'error': 'User not found'}), 404
-    return jsonify({
-        'success': True,
-        'id': user_obj.id,
-        'username': user_obj.username,
-        'email': user_obj.email,
-        'role': user_obj.role
-    })
+    return jsonify(user_profile_payload(user_obj))
 
 @app.route('/me', methods=['PUT'])
 @login_required
@@ -517,6 +582,10 @@ def update_me():
     email = (data.get('email') or '').strip().lower()
     current_password = (data.get('current_password') or '').strip()
     new_password = (data.get('new_password') or '').strip()
+    age_value = data.get('age')
+    current_grade = (data.get('current_grade') or '').strip()
+    school = (data.get('school') or '').strip()
+    birth_date = (data.get('birth_date') or '').strip()
 
     if not username or not email:
         return jsonify({'success': False, 'error': 'Username and email are required'}), 400
@@ -524,6 +593,24 @@ def update_me():
         return jsonify({'success': False, 'error': 'Username must be at least 3 characters'}), 400
     if not validate_email(email):
         return jsonify({'success': False, 'error': 'Invalid email address'}), 400
+    if current_grade and len(current_grade) > 80:
+        return jsonify({'success': False, 'error': 'Current grade is too long'}), 400
+    if school and len(school) > 160:
+        return jsonify({'success': False, 'error': 'School name is too long'}), 400
+    if birth_date:
+        try:
+            datetime.strptime(birth_date, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Birth date must use YYYY-MM-DD'}), 400
+
+    age = None
+    if age_value not in (None, ''):
+        try:
+            age = int(age_value)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Age must be a number'}), 400
+        if age < 1 or age > 120:
+            return jsonify({'success': False, 'error': 'Age must be between 1 and 120'}), 400
 
     username_owner = get_user_by_username(username)
     if username_owner and username_owner.id != current_user.id:
@@ -545,16 +632,48 @@ def update_me():
 
     current_user.username = username
     current_user.email = email
+    current_user.age = age
+    current_user.current_grade = current_grade
+    current_user.school = school
+    current_user.birth_date = birth_date
     db.session.commit()
 
     session['username'] = current_user.username
-    return jsonify({
-        'success': True,
-        'id': current_user.id,
-        'username': current_user.username,
-        'email': current_user.email,
-        'role': current_user.role
-    })
+    return jsonify(user_profile_payload(current_user))
+
+@app.route('/me/avatar', methods=['POST'])
+@login_required
+def update_avatar():
+    current_user = get_user_by_id(session['user_id'])
+    if not current_user:
+        session.clear()
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    avatar = request.files.get('avatar')
+    if not avatar or avatar.filename == '':
+        return jsonify({'success': False, 'error': 'No image selected'}), 400
+    if not allow_avatar_file(avatar.filename):
+        return jsonify({'success': False, 'error': 'Avatar must be PNG, JPG, GIF, or WEBP'}), 400
+
+    extension = avatar.filename.rsplit('.', 1)[1].lower()
+    filename = f"user_{current_user.id}_{uuid.uuid4().hex}.{extension}"
+    avatar_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'avatars')
+    filepath = os.path.join(avatar_dir, filename)
+    avatar.save(filepath)
+
+    old_filename = current_user.profile_picture
+    current_user.profile_picture = filename
+    db.session.commit()
+
+    if old_filename:
+        old_path = os.path.join(avatar_dir, old_filename)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except OSError:
+                pass
+
+    return jsonify(user_profile_payload(current_user))
 
 @app.route('/api/admin/overview', methods=['GET'])
 @admin_required
@@ -567,6 +686,11 @@ def admin_overview():
             'username': account.username,
             'email': account.email,
             'role': account.role,
+            'age': account.age,
+            'current_grade': account.current_grade or '',
+            'school': account.school or '',
+            'birth_date': account.birth_date or '',
+            'profile_picture': profile_picture_url(account),
             'document_count': File.query.filter_by(user_id=account.id).count(),
             'history_count': History.query.filter_by(user_id=account.id).count()
         })
@@ -578,6 +702,41 @@ def admin_overview():
         'document_count': File.query.count(),
         'history_count': History.query.count()
     })
+
+@app.route('/api/admin/users/<int:user_id>/reset-password', methods=['POST'])
+@admin_required
+def admin_reset_user_password(user_id):
+    account = db.session.get(user, user_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+    if account.id == session.get('user_id'):
+        return jsonify({'success': False, 'error': 'Use your profile settings to change your own password'}), 400
+
+    temporary_password = generate_temporary_password()
+    account.password = generate_password_hash(temporary_password)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'temporary_password': temporary_password,
+        'message': 'Temporary password generated. Share it with the user once.'
+    })
+
+@app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_user(user_id):
+    account = db.session.get(user, user_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+    if account.id == session.get('user_id'):
+        return jsonify({'success': False, 'error': 'You cannot delete your own admin account'}), 400
+
+    delete_user_owned_files(account)
+    History.query.filter_by(user_id=account.id).delete()
+    db.session.delete(account)
+    db.session.commit()
+
+    return jsonify({'success': True})
 
 # -------------------------AI Summarize API------------------------------------------------
 @app.route('/api/summarize', methods=['POST'])
@@ -630,6 +789,69 @@ Document:
 
     except Exception as e:
         return jsonify({'success': False, 'error': f'Groq summarization failed: {str(e)}'}), 500
+
+# -------------------------AI Chat API------------------------------------------------
+@app.route('/api/chat', methods=['POST'])
+@login_required
+def ai_chat():
+    data = request.get_json() or {}
+    message = (data.get('message') or '').strip()
+    file_id = data.get('file_id') or data.get('doc_id')
+    raw_history = data.get('messages') or []
+
+    if not message:
+        return jsonify({'success': False, 'error': 'Message is required'}), 400
+
+    filename = None
+    document_text = ''
+    if file_id:
+        try:
+            doc = db.session.get(File, int(file_id))
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Invalid document selected'}), 400
+
+        if not doc or doc.user_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Document not found'}), 404
+
+        filename = doc.original_filename or doc.filename
+        document_text = doc.content or ''
+        words = document_text.split()
+        if len(words) > 9000:
+            document_text = ' '.join(words[:9000]) + '\n\n[Document truncated for chat]'
+
+    chat_messages = [
+        {
+            'role': 'system',
+            'content': (
+                'You are StudyAI, a friendly, concise study chat assistant. '
+                'Answer in clear study-focused language. If a document is provided, '
+                'ground answers in that document and say when the document does not contain enough information.'
+            )
+        }
+    ]
+
+    if document_text:
+        chat_messages.append({
+            'role': 'system',
+            'content': f'Selected document: {filename}\n\nDocument text:\n{document_text}'
+        })
+
+    if isinstance(raw_history, list):
+        for item in raw_history[-8:]:
+            if not isinstance(item, dict):
+                continue
+            role = item.get('role')
+            content = str(item.get('content') or '').strip()
+            if role in {'user', 'assistant'} and content:
+                chat_messages.append({'role': role, 'content': content[:2500]})
+
+    chat_messages.append({'role': 'user', 'content': message})
+
+    try:
+        reply = call_groq_messages(chat_messages, temperature=0.25, max_completion_tokens=1200)
+        return jsonify({'success': True, 'reply': reply, 'filename': filename})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'AI chat failed: {str(e)}'}), 500
     
 # -------------------------AI Flashcards API------------------------------------------------
 @app.route('/api/flashcards', methods=['POST'])
@@ -912,7 +1134,7 @@ def get_history_detail(history_id):
 @login_required
 def delete_history_item(history_id):
     record = db.session.get(History, history_id)
-    if not record or record.user_id != session['user_id']:
+    if not record or (record.user_id != session['user_id'] and not current_user_is_admin()):
         return jsonify({'success': False, 'error': 'History item not found'}), 404
 
     db.session.delete(record)
@@ -968,6 +1190,11 @@ def flashcards():
 def quiz():
     return render_template('quiz.html')
 
+@app.route("/chat")
+@login_required
+def chat():
+    return render_template('chat.html')
+
 @app.route("/summarize")
 @login_required
 def summarize():
@@ -988,6 +1215,21 @@ def ensure_db_schema():
         columns = [col['name'] for col in inspector.get_columns('user')]
         if 'role' not in columns:
             db.session.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'client'"))
+            db.session.commit()
+        if 'age' not in columns:
+            db.session.execute(text('ALTER TABLE user ADD COLUMN age INTEGER'))
+            db.session.commit()
+        if 'current_grade' not in columns:
+            db.session.execute(text('ALTER TABLE user ADD COLUMN current_grade VARCHAR(80)'))
+            db.session.commit()
+        if 'school' not in columns:
+            db.session.execute(text('ALTER TABLE user ADD COLUMN school VARCHAR(160)'))
+            db.session.commit()
+        if 'birth_date' not in columns:
+            db.session.execute(text('ALTER TABLE user ADD COLUMN birth_date VARCHAR(20)'))
+            db.session.commit()
+        if 'profile_picture' not in columns:
+            db.session.execute(text('ALTER TABLE user ADD COLUMN profile_picture VARCHAR(255)'))
             db.session.commit()
         db.session.execute(text("UPDATE user SET role = 'client' WHERE role IS NULL OR role = ''"))
         for admin_email in configured_admin_emails():
@@ -1022,3 +1264,4 @@ initialize_database()
 
 if __name__ == '__main__':
     app.run(debug=True)
+    
