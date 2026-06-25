@@ -136,11 +136,23 @@
                     el.textContent = user.username;
                 });
                 document.querySelectorAll('#userAvatar').forEach(function (el) {
-                    el.textContent = user.username.substring(0, 2).toUpperCase();
+                    setAvatarContent(el, user);
                 });
                 document.querySelectorAll('.user-plan').forEach(function (el) {
                     el.textContent = user.role === 'admin' ? 'Administrator' : 'Active session';
                 });
+            }
+
+            function setAvatarContent(el, user) {
+                if (!el || !user) return;
+                var initials = (user.username || '--').substring(0, 2).toUpperCase();
+                if (user.profile_picture) {
+                    el.innerHTML = '<img src="' + escapeHtml(user.profile_picture) + '" alt="">';
+                    el.classList.add('has-image');
+                } else {
+                    el.textContent = initials;
+                    el.classList.remove('has-image');
+                }
             }
 
             function profileToast(message) {
@@ -157,6 +169,140 @@
                 }, 3000);
             }
 
+            function needsOnboarding(user) {
+                return user && user.role !== 'admin' && (!user.age || !user.current_grade);
+            }
+
+            function ensureOnboardingModal(user) {
+                var existing = document.getElementById('onboardingModal');
+                if (existing) return existing;
+
+                var modal = document.createElement('div');
+                modal.className = 'modal-overlay profile-overlay onboarding-overlay';
+                modal.id = 'onboardingModal';
+                modal.style.display = 'none';
+                modal.innerHTML = `
+                    <div class="modal onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" onclick="event.stopPropagation()">
+                        <div class="onboarding-hero">
+                            <div class="onboarding-mascot">
+                                <div class="app-mascot-antenna"></div>
+                                <div class="app-mascot-head">
+                                    <span class="app-mascot-eye left"></span>
+                                    <span class="app-mascot-eye right"></span>
+                                    <span class="app-mascot-mouth"></span>
+                                </div>
+                                <div class="app-mascot-body"><span></span></div>
+                            </div>
+                            <div>
+                                <div class="hero-kicker"><i class="ti ti-sparkles"></i> First setup</div>
+                                <h3 id="onboardingTitle">Tell StudyAI where you are in school.</h3>
+                                <p>This helps the app shape study prompts and practice tools around your level.</p>
+                            </div>
+                        </div>
+                        <form class="onboarding-form" id="onboardingForm">
+                            <div class="profile-alert" id="onboardingAlert"></div>
+                            <div class="onboarding-section">
+                                <label for="onboardingAge">Age</label>
+                                <select id="onboardingAge" class="form-control" required>
+                                    <option value="">Pick your age</option>
+                                    ${Array.from({ length: 17 }, function (_, i) {
+                                        var age = i + 8;
+                                        return '<option value="' + age + '">' + age + '</option>';
+                                    }).join('')}
+                                </select>
+                            </div>
+                            <div class="onboarding-section">
+                                <label>Current grade</label>
+                                <div class="option-grid" id="gradeOptions">
+                                    ${['Primary 4','Primary 5','Primary 6','Secondary 1','Secondary 2','Secondary 3','Secondary 4','Secondary 5','Grade 9','Grade 10','Grade 11','Grade 12','Diploma','University'].map(function (grade) {
+                                        return '<button class="option-pill" type="button" data-grade="' + escapeHtml(grade) + '">' + escapeHtml(grade) + '</button>';
+                                    }).join('')}
+                                </div>
+                            </div>
+                            <div class="modal-footer profile-actions">
+                                <button class="btn primary" type="submit" id="onboardingSaveBtn"><i class="ti ti-check"></i> Continue</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+
+                modal.querySelectorAll('[data-grade]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        modal.querySelectorAll('[data-grade]').forEach(function (item) {
+                            item.classList.remove('selected');
+                        });
+                        btn.classList.add('selected');
+                        modal.dataset.grade = btn.dataset.grade;
+                    });
+                });
+                modal.querySelector('#onboardingForm').addEventListener('submit', function (event) {
+                    saveOnboarding(event, user);
+                });
+                document.body.appendChild(modal);
+                return modal;
+            }
+
+            function openOnboardingModal(user) {
+                var modal = ensureOnboardingModal(user);
+                modal.querySelector('#onboardingAge').value = user.age || '';
+                if (user.current_grade) {
+                    modal.dataset.grade = user.current_grade;
+                    modal.querySelectorAll('[data-grade]').forEach(function (btn) {
+                        btn.classList.toggle('selected', btn.dataset.grade === user.current_grade);
+                    });
+                }
+                modal.style.display = 'flex';
+            }
+
+            async function saveOnboarding(event, user) {
+                event.preventDefault();
+                var modal = ensureOnboardingModal(user);
+                var alert = modal.querySelector('#onboardingAlert');
+                var btn = modal.querySelector('#onboardingSaveBtn');
+                var age = modal.querySelector('#onboardingAge').value;
+                var grade = modal.dataset.grade || '';
+
+                alert.className = 'profile-alert';
+                alert.textContent = '';
+                if (!age || !grade) {
+                    alert.className = 'profile-alert show error';
+                    alert.textContent = 'Please choose your age and current grade.';
+                    return;
+                }
+
+                btn.disabled = true;
+                try {
+                    var res = await fetch('/me', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: user.username,
+                            email: user.email,
+                            age: age,
+                            current_grade: grade,
+                            birth_date: user.birth_date || '',
+                            school: user.school || '',
+                            current_password: '',
+                            new_password: ''
+                        })
+                    });
+                    var data = await res.json();
+                    if (!data.success) {
+                        alert.className = 'profile-alert show error';
+                        alert.textContent = data.error || 'Could not save setup';
+                        return;
+                    }
+                    setSidebarUser(data);
+                    modal.style.display = 'none';
+                    profileToast('Profile setup complete');
+                } catch (error) {
+                    alert.className = 'profile-alert show error';
+                    alert.textContent = 'Could not save setup';
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+
             function ensureProfileModal() {
                 var existing = document.getElementById('profileModal');
                 if (existing) return existing;
@@ -169,7 +315,10 @@
                     <div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle" onclick="event.stopPropagation()">
                         <div class="modal-header profile-header">
                             <div class="profile-heading">
-                                <div class="profile-avatar" id="profileAvatar">--</div>
+                                <label class="profile-avatar-wrap" for="profileAvatarInput">
+                                    <div class="profile-avatar" id="profileAvatar">--</div>
+                                    <span><i class="ti ti-camera"></i></span>
+                                </label>
                                 <div>
                                     <h3 id="profileTitle">Profile</h3>
                                     <div class="modal-meta" id="profileMeta">Manage your StudyAI account</div>
@@ -178,6 +327,7 @@
                             <button class="btn-icon" type="button" data-profile-close aria-label="Close"><i class="ti ti-x"></i></button>
                         </div>
                         <form class="profile-form" id="profileForm">
+                            <input id="profileAvatarInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
                             <div class="profile-alert" id="profileAlert"></div>
                             <div class="profile-grid">
                                 <div class="form-group">
@@ -187,6 +337,24 @@
                                 <div class="form-group">
                                     <label for="profileEmail">Email</label>
                                     <input id="profileEmail" class="form-control" type="email" autocomplete="email" required>
+                                </div>
+                            </div>
+                            <div class="profile-grid">
+                                <div class="form-group">
+                                    <label for="profileAge">Age</label>
+                                    <input id="profileAge" class="form-control" type="number" min="1" max="120" inputmode="numeric">
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileBirthDate">Birth date</label>
+                                    <input id="profileBirthDate" class="form-control" type="date">
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileGrade">Current grade</label>
+                                    <input id="profileGrade" class="form-control" maxlength="80" placeholder="Year 10, Grade 11, Diploma...">
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileSchool">School</label>
+                                    <input id="profileSchool" class="form-control" maxlength="160" placeholder="Your school name">
                                 </div>
                             </div>
                             <div class="profile-password">
@@ -220,6 +388,7 @@
                     btn.addEventListener('click', closeProfileModal);
                 });
                 modal.querySelector('#profileForm').addEventListener('submit', saveProfile);
+                modal.querySelector('#profileAvatarInput').addEventListener('change', previewProfileAvatar);
                 document.body.appendChild(modal);
                 return modal;
             }
@@ -235,10 +404,15 @@
                     var res = await fetch('/me');
                     var data = await res.json();
                     if (!data.success) throw new Error(data.error || 'Could not load profile');
-                    modal.querySelector('#profileAvatar').textContent = data.username.substring(0, 2).toUpperCase();
+                    setAvatarContent(modal.querySelector('#profileAvatar'), data);
                     modal.querySelector('#profileMeta').textContent = data.email;
                     modal.querySelector('#profileUsername').value = data.username;
                     modal.querySelector('#profileEmail').value = data.email;
+                    modal.querySelector('#profileAge').value = data.age || '';
+                    modal.querySelector('#profileBirthDate').value = data.birth_date || '';
+                    modal.querySelector('#profileGrade').value = data.current_grade || '';
+                    modal.querySelector('#profileSchool').value = data.school || '';
+                    modal.querySelector('#profileAvatarInput').value = '';
                     modal.querySelector('#profileCurrentPassword').value = '';
                     modal.querySelector('#profileNewPassword').value = '';
                     modal.querySelector('#profileUsername').focus();
@@ -251,6 +425,14 @@
             function closeProfileModal() {
                 var modal = document.getElementById('profileModal');
                 if (modal) modal.style.display = 'none';
+            }
+
+            function previewProfileAvatar(event) {
+                var file = event.target.files && event.target.files[0];
+                if (!file) return;
+                var avatar = ensureProfileModal().querySelector('#profileAvatar');
+                avatar.innerHTML = '<img src="' + URL.createObjectURL(file) + '" alt="">';
+                avatar.classList.add('has-image');
             }
 
             async function saveProfile(event) {
@@ -269,6 +451,10 @@
                         body: JSON.stringify({
                             username: modal.querySelector('#profileUsername').value.trim(),
                             email: modal.querySelector('#profileEmail').value.trim(),
+                            age: modal.querySelector('#profileAge').value,
+                            birth_date: modal.querySelector('#profileBirthDate').value,
+                            current_grade: modal.querySelector('#profileGrade').value.trim(),
+                            school: modal.querySelector('#profileSchool').value.trim(),
                             current_password: modal.querySelector('#profileCurrentPassword').value,
                             new_password: modal.querySelector('#profileNewPassword').value
                         })
@@ -280,9 +466,28 @@
                         return;
                     }
 
+                    var avatarFile = modal.querySelector('#profileAvatarInput').files[0];
+                    if (avatarFile) {
+                        var formData = new FormData();
+                        formData.append('avatar', avatarFile);
+                        var avatarRes = await fetch('/me/avatar', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        var avatarData = await avatarRes.json();
+                        if (!avatarData.success) {
+                            alert.className = 'profile-alert show error';
+                            alert.textContent = avatarData.error || 'Profile saved, but avatar upload failed';
+                            setSidebarUser(data);
+                            return;
+                        }
+                        data = avatarData;
+                    }
+
                     setSidebarUser(data);
-                    modal.querySelector('#profileAvatar').textContent = data.username.substring(0, 2).toUpperCase();
+                    setAvatarContent(modal.querySelector('#profileAvatar'), data);
                     modal.querySelector('#profileMeta').textContent = data.email;
+                    modal.querySelector('#profileAvatarInput').value = '';
                     modal.querySelector('#profileCurrentPassword').value = '';
                     modal.querySelector('#profileNewPassword').value = '';
                     alert.className = 'profile-alert show success';
@@ -312,6 +517,18 @@
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') closeProfileModal();
             });
+
+            if (document.querySelector('.user-row')) {
+                fetch('/me')
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            setSidebarUser(data);
+                            if (needsOnboarding(data)) openOnboardingModal(data);
+                        }
+                    })
+                    .catch(function () {});
+            }
         })();
     </script>
 </body>

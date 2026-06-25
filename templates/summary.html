@@ -10,7 +10,7 @@
 <div class="dash">
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon"><i class="ti ti-brain"></i></div>
+      <span class="app-logo-mark" aria-hidden="true"></span>
       <div>
         <div class="logo-text">StudyAI</div>
         <div class="logo-sub">Study Assistant</div>
@@ -19,6 +19,7 @@
 
     <nav class="nav">
       <div class="nav-section">Study</div>
+      <a href="/chat" class="nav-item"><i class="ti ti-message-chatbot"></i> AI Chat</a>
       <a href="/summarize" class="nav-item active"><i class="ti ti-file-text"></i> Summarize</a>
       <a href="/flashcards" class="nav-item"><i class="ti ti-cards"></i> Flashcards</a>
       <a href="/quiz" class="nav-item"><i class="ti ti-list-check"></i> Quiz</a>
@@ -53,21 +54,32 @@
       </div>
       <div class="topbar-actions">
         <button class="btn" onclick="window.location.href='/uploaddocument'"><i class="ti ti-upload"></i> Upload</button>
-        <button class="btn primary-." id="summarizeBtn" onclick="doSummarize()"><i class="ti ti-sparkles"></i> Generate</button>
+        <button class="btn primary" id="summarizeBtn" onclick="doSummarize()"><i class="ti ti-sparkles"></i> Generate</button>
       </div>
     </div>
 
     <div class="content">
-      <div class="section-header">
-        <div class="page-title">
-          <p>Generate a structured summary from a document or pasted text.</p>
+      <div class="study-hero summary-hero">
+        <div class="study-hero-copy">
+          <div class="hero-kicker"><i class="ti ti-file-description"></i> Smart summary</div>
+          <h2>Condense study material into a clear reading brief.</h2>
+          <p class="hero-description">Use an uploaded document or paste raw text, then get a structured summary built for quick review.</p>
+        </div>
+        <div class="hero-stats">
+          <div><strong>12k</strong><span>word input</span></div>
+          <div><strong>AI</strong><span>outline</span></div>
         </div>
       </div>
 
-      <div class="app-grid">
-        <section class="app-card">
-          <div class="card-title">Source</div>
-          <div class="card-sub">Pick an uploaded document, or paste text directly.</div>
+      <div class="app-grid summary-layout">
+        <section class="app-card generator-card summary-source-card">
+          <div class="summary-card-heading">
+            <div class="summary-card-icon"><i class="ti ti-notes"></i></div>
+            <div>
+              <div class="card-title">Source Material</div>
+              <div class="card-sub">Pick an uploaded document, or paste text directly.</div>
+            </div>
+          </div>
 
           <div class="form-group">
             <label for="docSelect">Document</label>
@@ -81,15 +93,20 @@
             <textarea id="pasteText" placeholder="Paste notes, article text, or study material here."></textarea>
           </div>
 
-          <button class="btn primary btn-full" onclick="doSummarize()"><i class="ti ti-sparkles"></i> Generate Summary</button>
+          <div class="summary-source-meta">
+            <span><i class="ti ti-file-text"></i> Document or text</span>
+            <span><i class="ti ti-layout-list"></i> Structured output</span>
+          </div>
+
+          <button class="btn primary btn-full summary-generate" onclick="doSummarize()"><i class="ti ti-sparkles"></i> Generate Summary</button>
           <div class="error-msg" id="errorMsg"></div>
         </section>
 
         <section class="stack">
-          <div class="result-panel" id="resultPanel">
-            <div class="empty-state">
+          <div class="result-panel summary-result-panel" id="resultPanel">
+            <div class="empty-state summary-empty">
               <i class="ti ti-file-description"></i>
-              <p>Your summary will appear here.</p>
+              <p>Your polished summary will appear here.</p>
             </div>
           </div>
         </section>
@@ -149,7 +166,21 @@ async function doSummarize() {
     const d = await r.json();
 
     if (d.success) {
-      panel.innerHTML = `<div class="app-card"><div class="card-title">Summary</div><div class="summary-body">${d.summary}</div></div>`;
+      panel.innerHTML = `
+        <div class="app-card summary-output study-surface">
+          <div class="summary-output-header">
+            <div class="summary-card-heading">
+              <div class="summary-card-icon"><i class="ti ti-file-check"></i></div>
+              <div>
+                <div class="card-title">Summary</div>
+                <div class="card-sub">${d.filename ? escHtml(d.filename) : 'Generated from pasted text'}</div>
+              </div>
+            </div>
+            <button class="btn" onclick="copySummary()"><i class="ti ti-copy"></i> Copy</button>
+          </div>
+          <div class="summary-body" id="summaryBody">${escHtml(d.summary)}</div>
+        </div>
+      `;
     } else {
       panel.innerHTML = `<div class="empty-state"><i class="ti ti-alert-circle"></i><p>${d.error || 'Unable to generate a summary.'}</p></div>`;
     }
@@ -158,6 +189,16 @@ async function doSummarize() {
   }
 
   btn.disabled = false;
+}
+
+function copySummary() {
+  const body = document.getElementById('summaryBody');
+  if (!body) return;
+  navigator.clipboard.writeText(body.innerText || body.textContent || '');
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 async function loadMe() {
